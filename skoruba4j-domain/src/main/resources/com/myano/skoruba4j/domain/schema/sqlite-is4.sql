@@ -1,0 +1,242 @@
+-- IS4 configuration + grants for embedded SQLite. Do not run against production SQL Server.
+CREATE TABLE IF NOT EXISTS Clients (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Enabled INTEGER NOT NULL DEFAULT 1,
+  ClientId TEXT NOT NULL UNIQUE,
+  ProtocolType TEXT NOT NULL DEFAULT 'oidc',
+  RequireClientSecret INTEGER NOT NULL DEFAULT 1,
+  ClientName TEXT,
+  Description TEXT,
+  ClientUri TEXT,
+  LogoUri TEXT,
+  RequireConsent INTEGER NOT NULL DEFAULT 0,
+  AllowRememberConsent INTEGER NOT NULL DEFAULT 1,
+  AlwaysIncludeUserClaimsInIdToken INTEGER NOT NULL DEFAULT 0,
+  RequirePkce INTEGER NOT NULL DEFAULT 1,
+  AllowPlainTextPkce INTEGER NOT NULL DEFAULT 0,
+  AllowAccessTokensViaBrowser INTEGER NOT NULL DEFAULT 0,
+  FrontChannelLogoutUri TEXT,
+  FrontChannelLogoutSessionRequired INTEGER NOT NULL DEFAULT 1,
+  BackChannelLogoutUri TEXT,
+  BackChannelLogoutSessionRequired INTEGER NOT NULL DEFAULT 1,
+  AllowOfflineAccess INTEGER NOT NULL DEFAULT 0,
+  IdentityTokenLifetime INTEGER NOT NULL DEFAULT 300,
+  AccessTokenLifetime INTEGER NOT NULL DEFAULT 3600,
+  AuthorizationCodeLifetime INTEGER NOT NULL DEFAULT 300,
+  ConsentLifetime INTEGER,
+  AbsoluteRefreshTokenLifetime INTEGER NOT NULL DEFAULT 2592000,
+  SlidingRefreshTokenLifetime INTEGER NOT NULL DEFAULT 1296000,
+  RefreshTokenUsage INTEGER NOT NULL DEFAULT 1,
+  UpdateAccessTokenClaimsOnRefresh INTEGER NOT NULL DEFAULT 0,
+  RefreshTokenExpiration INTEGER NOT NULL DEFAULT 1,
+  AccessTokenType INTEGER NOT NULL DEFAULT 0,
+  EnableLocalLogin INTEGER NOT NULL DEFAULT 1,
+  IncludeJwtId INTEGER NOT NULL DEFAULT 0,
+  AlwaysSendClientClaims INTEGER NOT NULL DEFAULT 0,
+  ClientClaimsPrefix TEXT,
+  PairWiseSubjectSalt TEXT,
+  Created TEXT NOT NULL,
+  Updated TEXT,
+  LastAccessed TEXT,
+  UserSsoLifetime INTEGER,
+  UserCodeType TEXT,
+  DeviceCodeLifetime INTEGER NOT NULL DEFAULT 300,
+  NonEditable INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS ClientGrantTypes (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  GrantType TEXT NOT NULL,
+  ClientId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ClientRedirectUris (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  RedirectUri TEXT NOT NULL,
+  ClientId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ClientPostLogoutRedirectUris (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  PostLogoutRedirectUri TEXT NOT NULL,
+  ClientId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ClientScopes (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Scope TEXT NOT NULL,
+  ClientId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ClientSecrets (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ClientId INTEGER NOT NULL,
+  Description TEXT,
+  Value TEXT NOT NULL,
+  Expiration TEXT,
+  Type TEXT NOT NULL,
+  Created TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ClientCorsOrigins (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Origin TEXT NOT NULL,
+  ClientId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ClientClaims (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Type TEXT NOT NULL,
+  Value TEXT NOT NULL,
+  ClientId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ClientProperties (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  "Key" TEXT NOT NULL,
+  Value TEXT NOT NULL,
+  ClientId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ClientIdPRestrictions (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Provider TEXT NOT NULL,
+  ClientId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ApiResources (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Enabled INTEGER NOT NULL DEFAULT 1,
+  Name TEXT NOT NULL UNIQUE,
+  DisplayName TEXT,
+  Description TEXT,
+  AllowedAccessTokenSigningAlgorithms TEXT,
+  ShowInDiscoveryDocument INTEGER NOT NULL DEFAULT 1,
+  Created TEXT NOT NULL,
+  Updated TEXT,
+  LastAccessed TEXT,
+  NonEditable INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS ApiResourceScopes (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Scope TEXT NOT NULL,
+  ApiResourceId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ApiResourceClaims (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Type TEXT NOT NULL,
+  ApiResourceId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ApiResourceSecrets (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ApiResourceId INTEGER NOT NULL,
+  Description TEXT,
+  Value TEXT NOT NULL,
+  Expiration TEXT,
+  Type TEXT NOT NULL,
+  Created TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ApiResourceProperties (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  "Key" TEXT NOT NULL,
+  Value TEXT NOT NULL,
+  ApiResourceId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ApiScopes (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Enabled INTEGER NOT NULL DEFAULT 1,
+  Name TEXT NOT NULL UNIQUE,
+  DisplayName TEXT,
+  Description TEXT,
+  Required INTEGER NOT NULL DEFAULT 0,
+  Emphasize INTEGER NOT NULL DEFAULT 0,
+  ShowInDiscoveryDocument INTEGER NOT NULL DEFAULT 1,
+  Created TEXT NOT NULL,
+  Updated TEXT,
+  LastAccessed TEXT,
+  NonEditable INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS ApiScopeClaims (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Type TEXT NOT NULL,
+  ScopeId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ApiScopeProperties (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  "Key" TEXT NOT NULL,
+  Value TEXT NOT NULL,
+  ScopeId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS IdentityResources (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Enabled INTEGER NOT NULL DEFAULT 1,
+  Name TEXT NOT NULL UNIQUE,
+  DisplayName TEXT,
+  Description TEXT,
+  Required INTEGER NOT NULL DEFAULT 0,
+  Emphasize INTEGER NOT NULL DEFAULT 0,
+  ShowInDiscoveryDocument INTEGER NOT NULL DEFAULT 1,
+  Created TEXT NOT NULL,
+  Updated TEXT,
+  NonEditable INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS IdentityResourceClaims (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Type TEXT NOT NULL,
+  IdentityResourceId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS IdentityResourceProperties (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  "Key" TEXT NOT NULL,
+  Value TEXT NOT NULL,
+  IdentityResourceId INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS PersistedGrants (
+  "Key" TEXT NOT NULL PRIMARY KEY,
+  ClientId TEXT NOT NULL,
+  Type TEXT NOT NULL,
+  SubjectId TEXT,
+  SessionId TEXT,
+  Description TEXT,
+  CreationTime TEXT NOT NULL,
+  Expiration TEXT,
+  ConsumedTime TEXT,
+  Data TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS DeviceCodes (
+  UserCode TEXT NOT NULL PRIMARY KEY,
+  DeviceCode TEXT NOT NULL UNIQUE,
+  ClientId TEXT NOT NULL,
+  SubjectId TEXT,
+  SessionId TEXT,
+  Description TEXT,
+  CreationTime TEXT NOT NULL,
+  Expiration TEXT NOT NULL,
+  Data TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS AuditLog (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Event TEXT,
+  Source TEXT,
+  Category TEXT,
+  SubjectIdentifier TEXT,
+  SubjectName TEXT,
+  SubjectType TEXT,
+  SubjectAdditionalData TEXT,
+  Action TEXT,
+  Data TEXT,
+  Created TEXT NOT NULL
+);

@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: skoruba4j-sts
+  profiles:
+    default: oss,local
+  config:
+    import: optional:file:../config/idserver-local.yml,optional:file:config/idserver-local.yml
+
+server:
+  port: 5050
+  ssl:
+    trust-store: file:${java.home}/lib/security/cacerts
+    trust-store-password: changeit
+  servlet:
+    session:
+      cookie:
+        name: SKORUBA4J_STS_SESSION
+        http-only: true
+        same-site: lax
+
+idserver:
+  db:
+    provider: sqlite
+    url: ${IDSERVER_DB_URL:jdbc:sqlite:$${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000}
+    username: ${IDSERVER_DB_USERNAME:}
+    password: ${IDSERVER_DB_PASSWORD:}
+  identity:
+    table-style: skoruba
+  login:
+    resolution-policy: username
+  logout:
+    end-session: compatible
+  # IS4-style persistence: signing key and auth cookie survive process restart.
+  signing:
+    # Relative to IDSERVER_HOME (or user.dir). Same idea as IS4 tempkey.jwk.
+    jwk-file: secrets/sts-signing.jwk
+  auth-cookie:
+    key-file: secrets/sts-auth.key
+    name: SKORUBA4J_STS_AUTH
+    ttl: 10h
+  # External IdP apps for STS (secrets via env / idserver-local.yml only). Per-Client enable + link-mode in ClientProperties.
+  external-login:
+    google:
+      client-id: ${IDSERVER_GOOGLE_CLIENT_ID:}
+      client-secret: ${IDSERVER_GOOGLE_CLIENT_SECRET:}
+      allow-direct-login: false
+    microsoft:
+      client-id: ${IDSERVER_MICROSOFT_CLIENT_ID:}
+      client-secret: ${IDSERVER_MICROSOFT_CLIENT_SECRET:}
+      tenant-id: ${IDSERVER_MICROSOFT_TENANT_ID:}
+      allow-direct-login: false
+    # WhatsApp Cloud API QR reply-login (not OIDC). Per-Client: skoruba4j.external.whatsapp.
+    whatsapp:
+      business-phone: ${IDSERVER_WHATSAPP_BUSINESS_PHONE:}
+      webhook-verify-token: ${IDSERVER_WHATSAPP_WEBHOOK_VERIFY_TOKEN:}
+      app-secret: ${IDSERVER_WHATSAPP_APP_SECRET:}
+      allow-direct-login: false
+    # WeChat Open Platform website app (扫码登录 / qrconnect). Per-Client: skoruba4j.external.wechat.
+    wechat:
+      app-id: ${IDSERVER_WECHAT_APP_ID:}
+      app-secret: ${IDSERVER_WECHAT_APP_SECRET:}
+      allow-direct-login: false
+  issuer-uri: http://127.0.0.1:5050
+  smtp:
+    host: ${IDSERVER_SMTP_HOST:}
+    port: ${IDSERVER_SMTP_PORT:587}
+    username: ${IDSERVER_SMTP_USERNAME:}
+    password: ${IDSERVER_SMTP_PASSWORD:}
+    from: ${IDSERVER_SMTP_FROM:}
+    start-tls: true
+    reset-key: ${IDSERVER_SMTP_RESET_KEY:}
+  admin:
+    client-id: skoruba4j-admin

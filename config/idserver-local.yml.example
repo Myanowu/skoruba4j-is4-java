@@ -1,0 +1,37 @@
+# Copy to idserver-local.yml (gitignored) or let skoruba4j-console write it.
+# Shared by STS, Admin, and Admin API via spring.config.import.
+# Do not put production passwords in the public tree.
+
+# Default install uses bundled SQLite under ${IDSERVER_HOME}/data/.
+# Production / existing IS4: sqlserver | postgresql | mysql and a real JDBC URL.
+
+idserver:
+  db:
+    provider: sqlite
+    url: 'jdbc:sqlite:${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000'
+    username:
+    password:
+  identity:
+    table-style: skoruba
+  issuer-uri: http://127.0.0.1:5050
+  logout:
+    end-session: compatible
+  admin:
+    # local | sts-password | sts-oidc (Control default when blank: sts-password)
+    login-mode: local
+    oidc-enabled: false
+    client-id: skoruba4j-admin
+    role: MyRole
+  console:
+    sts-port: 5051
+    sts-ssl-enabled: true
+    sts-heap-mb: 512
+    sts-db-pool-size: 4
+    admin-port: 6061
+    admin-ssl-enabled: true
+    admin-heap-mb: 512
+    admin-db-pool-size: 4
+    admin-api-port: 44302
+    admin-api-ssl-enabled: true
+    admin-api-heap-mb: 256
+    admin-api-db-pool-size: 4

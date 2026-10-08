@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: skoruba4j-admin
+  profiles:
+    default: oss,local
+  config:
+    import: optional:file:../config/idserver-local.yml,optional:file:config/idserver-local.yml
+
+server:
+  port: 6060
+  ssl:
+    trust-store: file:${java.home}/lib/security/cacerts
+    trust-store-password: changeit
+  servlet:
+    session:
+      timeout: 12h
+      cookie:
+        name: SKORUBA4J_ADMIN_SESSION
+        http-only: true
+        same-site: lax
+
+idserver:
+  db:
+    provider: sqlite
+    url: ${IDSERVER_DB_URL:jdbc:sqlite:$${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000}
+    username: ${IDSERVER_DB_USERNAME:}
+    password: ${IDSERVER_DB_PASSWORD:}
+  identity:
+    table-style: skoruba
+  admin:
+    role: MyRole
+    # Bare oss/HTTP: local Users table. Control overlay sets login-mode (default sts-password).
+    login-mode: local
+    oidc-enabled: false
+    client-id: skoruba4j-admin
+    redirect-path: /signin-oidc
+    scopes: openid,profile,email,roles
+  issuer-uri: http://127.0.0.1:5050

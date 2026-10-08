@@ -1,0 +1,21 @@
+# Copy to idserver-connections.yml (gitignored) or let skoruba4j-console write it.
+# Named JDBC profiles for Skoruba4j Control. Processes only read idserver-local.yml;
+# use "Set as current" in Control to project one profile into idserver.db.*.
+
+version: 1
+active-id: 'local-sqlite'
+connections:
+  - id: 'local-sqlite'
+    name: 'Local SQLite'
+    provider: sqlite
+    url: 'jdbc:sqlite:${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000'
+    username: ''
+    password: ''
+    table-style: skoruba
+  - id: 'example-sqlserver'
+    name: 'Example SQL Server'
+    provider: sqlserver
+    url: 'jdbc:sqlserver://127.0.0.1:1433;databaseName=IdentityServer;encrypt=true;trustServerCertificate=true'
+    username: ''
+    password: ''
+    table-style: skoruba

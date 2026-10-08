@@ -1,0 +1,39 @@
+application-local.yml
+application-local.yaml
+# legacy private profile name (pre-rename)
+application-elcss.yml
+application-elcss.yaml
+**/*.pfx
+**/*.p12
+secrets/
+.env
+target/
+.mvn/wrapper/maven-wrapper.jar
+.idea/
+*.iml
+.vscode/
+.metadata/
+.recommenders/
+bin/
+*.class
+hs_err_pid*
+replay_pid*
+Thumbs.db
+.DS_Store
+.cursor/scratch/
+config/idserver-local.yml
+config/idserver-connections.yml
+config/external-login-local.yml
+config/control-ui.properties
+config/client_secret_*.json
+logs/
+# Local identity database. First run creates it under $IDSERVER_HOME/data/. Never commit.
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+dist/
+# Local agent notes, plans, and scratch. Not part of the public tree.
+.cursor/
+*.log

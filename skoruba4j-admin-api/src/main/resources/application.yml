@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: skoruba4j-admin-api
+  profiles:
+    default: oss,local
+  config:
+    import: optional:file:../config/idserver-local.yml,optional:file:config/idserver-local.yml
+
+server:
+  port: 44302
+  ssl:
+    trust-store: file:${java.home}/lib/security/cacerts
+    trust-store-password: changeit
+
+idserver:
+  db:
+    provider: sqlite
+    url: ${IDSERVER_DB_URL:jdbc:sqlite:$${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000}
+    username: ${IDSERVER_DB_USERNAME:}
+    password: ${IDSERVER_DB_PASSWORD:}
+  identity:
+    table-style: skoruba
+  admin:
+    role: MyRole
+  logout:
+    end-session: compatible
+  issuer-uri: http://127.0.0.1:5050

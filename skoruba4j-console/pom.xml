@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.myano.skoruba4j</groupId>
+    <artifactId>skoruba4j-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>skoruba4j-console</artifactId>
+  <name>skoruba4j-console</name>
+  <description>Optional Swing ops console: monitor and locally start the three independently published processes</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.myano.skoruba4j</groupId>
+      <artifactId>skoruba4j-domain</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.microsoft.sqlserver</groupId>
+      <artifactId>mssql-jdbc</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.myano.skoruba4j.console.ConsoleApplication</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <transformers combine.self="override">
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <manifestEntries>
+                    <Main-Class>com.myano.skoruba4j.console.ConsoleApplication</Main-Class>
+                  </manifestEntries>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer">
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>filter-dist-cmd</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/dist-cmd</outputDirectory>
+              <useDefaultDelimiters>false</useDefaultDelimiters>
+              <delimiters>
+                <delimiter>@</delimiter>
+              </delimiters>
+              <resources>
+                <resource>
+                  <directory>src/dist/cmd</directory>
+                  <filtering>true</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>assemble-install-tree</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${skoruba4j.dist.dir}/jdk"/>
+                <mkdir dir="${skoruba4j.dist.dir}/lib"/>
+                <mkdir dir="${skoruba4j.dist.dir}/cmd"/>
+                <mkdir dir="${skoruba4j.dist.dir}/config"/>
+                <mkdir dir="${skoruba4j.dist.dir}/data"/>
+                <copy todir="${skoruba4j.dist.dir}/data" overwrite="true" failonerror="false">
+                  <fileset dir="${maven.multiModuleProjectDirectory}/data"
+                           erroronmissingdir="false"
+                           includes="skoruba4j.sqlite*"/>
+                </copy>
+                <mkdir dir="${skoruba4j.dist.dir}/tomcat/skoruba4j-sts"/>
+                <mkdir dir="${skoruba4j.dist.dir}/tomcat/skoruba4j-admin"/>
+                <mkdir dir="${skoruba4j.dist.dir}/tomcat/skoruba4j-admin-api"/>
+                <delete>
+                  <fileset dir="${skoruba4j.dist.dir}" includes="*.jar"/>
+                </delete>
+                <copy file="${project.build.directory}/${project.build.finalName}.jar"
+                      todir="${skoruba4j.dist.dir}/lib"
+                      overwrite="true"/>
+                <copy todir="${skoruba4j.dist.dir}/cmd" overwrite="true">
+                  <fileset dir="${project.build.directory}/dist-cmd"/>
+                </copy>
+                <copy file="${maven.multiModuleProjectDirectory}/config/idserver-local.yml.example"
+                      tofile="${skoruba4j.dist.dir}/config/idserver-local.yml"
+                      overwrite="false"
+                      failonerror="false"/>
+                <delete file="${skoruba4j.dist.dir}/config/application-local.yml" failonerror="false"/>
+                <delete file="${skoruba4j.dist.dir}/config/application-elcss.yml" failonerror="false"/>
+                <copy file="${maven.multiModuleProjectDirectory}/skoruba4j-sts/application-local.yml"
+                      tofile="${skoruba4j.dist.dir}/tomcat/skoruba4j-sts/application-local.yml"
+                      overwrite="true"
+                      failonerror="false"/>
+                <copy file="${maven.multiModuleProjectDirectory}/skoruba4j-admin/application-local.yml"
+                      tofile="${skoruba4j.dist.dir}/tomcat/skoruba4j-admin/application-local.yml"
+                      overwrite="true"
+                      failonerror="false"/>
+                <copy file="${maven.multiModuleProjectDirectory}/skoruba4j-admin-api/application-local.yml"
+                      tofile="${skoruba4j.dist.dir}/tomcat/skoruba4j-admin-api/application-local.yml"
+                      overwrite="true"
+                      failonerror="false"/>
+                <copy file="${maven.multiModuleProjectDirectory}/skoruba4j-sts/local-ssl.p12"
+                      tofile="${skoruba4j.dist.dir}/tomcat/skoruba4j-sts/local-ssl.p12"
+                      overwrite="true"
+                      failonerror="false"/>
+                <copy file="${maven.multiModuleProjectDirectory}/skoruba4j-admin/local-ssl.p12"
+                      tofile="${skoruba4j.dist.dir}/tomcat/skoruba4j-admin/local-ssl.p12"
+                      overwrite="true"
+                      failonerror="false"/>
+                <copy file="${maven.multiModuleProjectDirectory}/skoruba4j-admin-api/local-ssl.p12"
+                      tofile="${skoruba4j.dist.dir}/tomcat/skoruba4j-admin-api/local-ssl.p12"
+                      overwrite="true"
+                      failonerror="false"/>
+                <exec executable="robocopy.exe" failonerror="false" osfamily="windows">
+                  <arg value="${java.home}"/>
+                  <arg value="${skoruba4j.dist.dir}/jdk"/>
+                  <arg value="/E"/>
+                  <arg value="/NFL"/>
+                  <arg value="/NDL"/>
+                  <arg value="/NJH"/>
+                  <arg value="/NJS"/>
+                  <arg value="/NC"/>
+                  <arg value="/NS"/>
+                  <arg value="/NP"/>
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

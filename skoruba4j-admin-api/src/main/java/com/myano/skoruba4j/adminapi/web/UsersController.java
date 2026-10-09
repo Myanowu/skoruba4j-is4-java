@@ -3,17 +3,23 @@ package com.myano.skoruba4j.adminapi.web;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos.ChangePasswordRequest;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos.RoleAssignmentRequest;
+import com.myano.skoruba4j.adminapi.dto.AdminDtos.UserClaimDto;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos.UserClaimWrite;
+import com.myano.skoruba4j.adminapi.dto.AdminDtos.UserClaimsSyncRequest;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos.UserUpsert;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos.UsersDto;
 import com.myano.skoruba4j.domain.PageQuery;
 import com.myano.skoruba4j.domain.PageResult;
 import com.myano.skoruba4j.domain.identity.IdentityUser;
+import com.myano.skoruba4j.domain.identity.UserClaim;
 import com.myano.skoruba4j.domain.identity.UserProfileWrite;
 import java.net.URI;
 import com.myano.skoruba4j.domain.jdbc.JdbcRepositories;
 import com.myano.skoruba4j.domain.jdbc.UncheckedSqlException;
 import com.myano.skoruba4j.domain.password.IdentityPasswordHasher;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -78,6 +84,73 @@ public class UsersController {
         Map.of(
             "roles",
             jdbc.get().users().listRoles(id).stream().map(AdminDtos::fromRole).toList()));
+  }
+
+  /**
+   * Bulk create (not SCIM). Body is a JSON array of the same shape as {@code POST /api/Users}.
+   * Each row follows the single-create idempotent rule. Cap 200.
+   */
+  @PostMapping("/Bulk")
+  public ResponseEntity<?> bulkCreate(@RequestBody List<UserUpsert> body) {
+    if (jdbc.isEmpty()) {
+      return ApiResponses.noDatabase();
+    }
+    if (body == null || body.isEmpty()) {
+      return ApiResponses.badRequest("body must be a non-empty array");
+    }
+    if (body.size() > 200) {
+      return ApiResponses.badRequest("at most 200 users per request");
+    }
+    List<Map<String, Object>> results = new ArrayList<>();
+    int created = 0;
+    int existing = 0;
+    int failed = 0;
+    for (UserUpsert row : body) {
+      Map<String, Object> item = new LinkedHashMap<>();
+      if (row == null || row.userName() == null || row.userName().isBlank()) {
+        item.put("status", "failed");
+        item.put("error", "UserName is required");
+        failed++;
+        results.add(item);
+        continue;
+      }
+      String userName = row.userName().trim();
+      item.put("userName", userName);
+      String normalizedUser = userName.toUpperCase(Locale.ROOT);
+      try {
+        Optional<IdentityUser> before =
+            jdbc.get().users().findByNormalizedUserName(normalizedUser);
+        ResponseEntity<?> one = create(row);
+        if (one.getStatusCode().is2xxSuccessful()
+            && one.getBody() instanceof AdminDtos.UserDto dto) {
+          item.put("status", "ok");
+          item.put("id", dto.id());
+          if (before.isPresent()) {
+            item.put("result", "existing");
+            existing++;
+          } else {
+            item.put("result", "created");
+            created++;
+          }
+        } else {
+          item.put("status", "failed");
+          item.put("error", "create rejected");
+          failed++;
+        }
+      } catch (RuntimeException ex) {
+        item.put("status", "failed");
+        item.put("error", ex.getMessage() == null ? "error" : ex.getMessage());
+        failed++;
+      }
+      results.add(item);
+    }
+    Map<String, Object> summary = new LinkedHashMap<>();
+    summary.put("created", created);
+    summary.put("existing", existing);
+    summary.put("failed", failed);
+    summary.put("count", results.size());
+    summary.put("items", results);
+    return ResponseEntity.ok(summary);
   }
 
   /**
@@ -267,6 +340,21 @@ public class UsersController {
     return ResponseEntity.noContent().build();
   }
 
+  @GetMapping("/{id}/Claims")
+  public ResponseEntity<?> listClaims(@PathVariable String id) {
+    if (jdbc.isEmpty()) {
+      return ApiResponses.noDatabase();
+    }
+    if (jdbc.get().users().findById(id).isEmpty()) {
+      return ApiResponses.notFound();
+    }
+    List<UserClaimDto> claims =
+        jdbc.get().users().listClaims(id).stream()
+            .map(c -> new UserClaimDto(c.id(), c.type(), c.value()))
+            .toList();
+    return ResponseEntity.ok(Map.of("claims", claims));
+  }
+
   /** Skoruba {@code POST api/Users/Claims} assigns one claim (for example position) to userId. */
   @PostMapping("/Claims")
   public ResponseEntity<?> addClaim(@RequestBody UserClaimWrite body) {
@@ -285,5 +373,38 @@ public class UsersController {
     }
     jdbc.get().users().addClaim(body.userId(), body.claimType(), body.claimValue());
     return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Org sync: replace only the claim types present in the body. Other UserClaims stay untouched.
+   * Example: {@code PUT /api/Users/{id}/Claims/Sync} with {@code department}/{@code org_path}.
+   */
+  @PutMapping("/{id}/Claims/Sync")
+  public ResponseEntity<?> syncClaims(
+      @PathVariable String id, @RequestBody UserClaimsSyncRequest body) {
+    if (jdbc.isEmpty()) {
+      return ApiResponses.noDatabase();
+    }
+    if (jdbc.get().users().findById(id).isEmpty()) {
+      return ApiResponses.notFound();
+    }
+    List<UserClaim> rows = new ArrayList<>();
+    if (body != null) {
+      for (UserClaimDto dto : body.claims()) {
+        if (dto == null || dto.type() == null || dto.type().isBlank()) {
+          continue;
+        }
+        rows.add(new UserClaim(0, dto.type().trim(), dto.value() == null ? "" : dto.value()));
+      }
+    }
+    if (rows.isEmpty()) {
+      return ApiResponses.badRequest("claims must contain at least one type");
+    }
+    jdbc.get().users().replaceClaimsByTypes(id, rows);
+    List<UserClaimDto> claims =
+        jdbc.get().users().listClaims(id).stream()
+            .map(c -> new UserClaimDto(c.id(), c.type(), c.value()))
+            .toList();
+    return ResponseEntity.ok(Map.of("claims", claims));
   }
 }

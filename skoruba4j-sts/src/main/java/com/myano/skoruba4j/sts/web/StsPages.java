@@ -187,6 +187,7 @@ final class StsPages {
         th,td{text-align:left;padding:.55rem .4rem;border-bottom:1px solid var(--line);vertical-align:top}
         th{color:var(--muted);font-weight:600}
         code{font-size:.85em;background:var(--fill);padding:.1rem .35rem;border-radius:6px}
+        code.setting{display:block;margin:0 0 1.15rem;padding:.7rem .85rem;font-size:.82rem;line-height:1.4;word-break:break-all}
         .dl{display:grid;grid-template-columns:7rem 1fr;gap:.35rem .75rem;margin:0}
         .dl dt{color:var(--muted)}
         .actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}

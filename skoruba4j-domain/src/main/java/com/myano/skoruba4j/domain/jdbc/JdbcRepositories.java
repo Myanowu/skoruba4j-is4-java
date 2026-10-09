@@ -11,6 +11,7 @@ import com.myano.skoruba4j.domain.configstore.AuditLogRepository;
 import com.myano.skoruba4j.domain.configstore.ClientRepository;
 import com.myano.skoruba4j.domain.configstore.DiscoveryResourceAdminRepository;
 import com.myano.skoruba4j.domain.configstore.PersistedGrantRepository;
+import com.myano.skoruba4j.domain.configstore.ResourceClaimTypesRepository;
 import com.myano.skoruba4j.domain.configstore.ScopeCatalogRepository;
 import com.myano.skoruba4j.domain.identity.RoleRepository;
 import com.myano.skoruba4j.domain.identity.UserRepository;
@@ -29,6 +30,7 @@ public final class JdbcRepositories {
   private final DiscoveryResourceAdminRepository identityResources;
   private final ApiAudienceRepository audiences;
   private final ScopeCatalogRepository scopes;
+  private final ResourceClaimTypesRepository resourceClaimTypes;
   private final PersistedGrantRepository persistedGrants;
   private final AuditLogRepository auditLogs;
 
@@ -59,6 +61,7 @@ public final class JdbcRepositories {
             "IdentityResourceId");
     this.audiences = new ApiAudienceRepository(dataSource, dialect);
     this.scopes = new ScopeCatalogRepository(dataSource, dialect);
+    this.resourceClaimTypes = new ResourceClaimTypesRepository(dataSource, dialect);
     this.persistedGrants = new PersistedGrantRepository(dataSource, dialect, identityTables);
     this.auditLogs = new AuditLogRepository(dataSource, dialect);
   }
@@ -109,6 +112,10 @@ public final class JdbcRepositories {
 
   public ScopeCatalogRepository scopes() {
     return scopes;
+  }
+
+  public ResourceClaimTypesRepository resourceClaimTypes() {
+    return resourceClaimTypes;
   }
 
   public PersistedGrantRepository persistedGrants() {

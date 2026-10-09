@@ -86,6 +86,19 @@ public final class AdminDtos {
 
   public record UserClaimWrite(String userId, String claimType, String claimValue) {}
 
+  /** One claim row for list / Org sync (id may be 0 on write). */
+  public record UserClaimDto(int id, String type, String value) {}
+
+  /**
+   * Org → IdP sync body: replace only the listed claim types for one user. Example types: {@code
+   * department}, {@code org_path}, {@code org_id}, {@code cost_center}.
+   */
+  public record UserClaimsSyncRequest(List<UserClaimDto> claims) {
+    public UserClaimsSyncRequest {
+      claims = claims == null ? List.of() : List.copyOf(claims);
+    }
+  }
+
   public record RolesDto(int pageSize, int totalCount, int page, List<RoleDto> roles) {
     public RolesDto {
       roles = roles == null ? List.of() : roles;

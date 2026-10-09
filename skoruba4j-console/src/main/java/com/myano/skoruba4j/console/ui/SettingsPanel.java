@@ -86,6 +86,8 @@ final class SettingsPanel extends JPanel {
   private final JTextField issuerUri = new JTextField();
   private final JComboBox<String> endSession = new JComboBox<>(LocalConfigFile.END_SESSION_MODES);
   private final JComboBox<String> accountChooser = new JComboBox<>();
+  private final JComboBox<String> allowRegister = new JComboBox<>();
+  private final JComboBox<String> registerCaptcha = new JComboBox<>();
   private final JComboBox<String> debugMode = new JComboBox<>();
   private final JPasswordField debugPassword = new JPasswordField();
   private final JCheckBox showDebugPassword = new JCheckBox();
@@ -213,6 +215,14 @@ final class SettingsPanel extends JPanel {
   private void refreshLocalizedCombos() {
     refillIndexedCombo(
         accountChooser,
+        Messages.t("control.choice.yes"),
+        Messages.t("control.choice.no"));
+    refillIndexedCombo(
+        allowRegister,
+        Messages.t("control.choice.yes"),
+        Messages.t("control.choice.no"));
+    refillIndexedCombo(
+        registerCaptcha,
         Messages.t("control.choice.yes"),
         Messages.t("control.choice.no"));
     refillIndexedCombo(
@@ -450,6 +460,12 @@ final class SettingsPanel extends JPanel {
     accountChooser.setEditable(false);
     i18nRow(form, gc, "control.sts.accountChooser", accountChooser);
     i18nNote(form, gc, "control.sts.accountChooser.note");
+    allowRegister.setEditable(false);
+    i18nRow(form, gc, "control.sts.allowRegister", allowRegister);
+    i18nNote(form, gc, "control.sts.allowRegister.note");
+    registerCaptcha.setEditable(false);
+    i18nRow(form, gc, "control.sts.registerCaptcha", registerCaptcha);
+    i18nNote(form, gc, "control.sts.registerCaptcha.note");
     debugMode.setEditable(false);
     i18nRow(form, gc, "control.sts.debugLogin", debugMode);
     i18nRow(form, gc, "control.sts.debugPassword", debugPassword);
@@ -569,6 +585,8 @@ final class SettingsPanel extends JPanel {
       loadConnectionStore();
       issuerUri.setText(form.issuerUri);
       accountChooser.setSelectedIndex(form.accountChooserEnabled ? 0 : 1);
+      allowRegister.setSelectedIndex(form.allowRegister ? 0 : 1);
+      registerCaptcha.setSelectedIndex(form.registerCaptcha ? 0 : 1);
       debugMode.setSelectedIndex(form.debugMode ? 1 : 0);
       debugPassword.setText(form.debugPassword);
       endSession.setSelectedItem(LocalConfigFile.canonicalizeEndSession(form.endSession));
@@ -671,6 +689,8 @@ final class SettingsPanel extends JPanel {
       form.tableStyle = previousForm.tableStyle;
       form.issuerUri = issuerUri.getText();
       form.accountChooserEnabled = accountChooser.getSelectedIndex() != 1;
+      form.allowRegister = allowRegister.getSelectedIndex() == 0;
+      form.registerCaptcha = registerCaptcha.getSelectedIndex() != 1;
       form.debugMode = debugMode.getSelectedIndex() == 1;
       form.debugPassword = new String(debugPassword.getPassword());
       form.endSession = (String) endSession.getSelectedItem();

@@ -1,11 +1,10 @@
 package com.myano.skoruba4j.admin.web;
 
+import com.myano.skoruba4j.domain.configstore.AuditLogWriter;
 import com.myano.skoruba4j.domain.jdbc.JdbcRepositories;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,7 +17,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
  */
 @Component
 public class AdminAuditLogInterceptor implements HandlerInterceptor {
-  private static final Logger log = LoggerFactory.getLogger(AdminAuditLogInterceptor.class);
   private final Optional<JdbcRepositories> jdbc;
 
   public AdminAuditLogInterceptor(Optional<JdbcRepositories> jdbc) {
@@ -31,7 +29,7 @@ public class AdminAuditLogInterceptor implements HandlerInterceptor {
       HttpServletResponse response,
       Object handler,
       Exception ex) {
-    if (ex != null || !shouldRecord(request, response) || jdbc.isEmpty()) {
+    if (ex != null || !shouldRecord(request, response)) {
       return;
     }
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -40,26 +38,8 @@ public class AdminAuditLogInterceptor implements HandlerInterceptor {
         || auth instanceof AnonymousAuthenticationToken) {
       return;
     }
-    try {
-      if (!jdbc.get().auditLogs().tableReady()) {
-        return;
-      }
-      String subject = auth.getName();
-      jdbc.get()
-          .auditLogs()
-          .insert(
-              "AdminRequestEvent",
-              "skoruba4j-admin",
-              "Admin",
-              subject,
-              subject,
-              "User",
-              "",
-              request.getMethod() + " " + request.getRequestURI(),
-              "");
-    } catch (RuntimeException e) {
-      log.debug("audit log write skipped: {}", e.toString());
-    }
+    AuditLogWriter.adminRequest(
+        jdbc, auth.getName(), request.getMethod() + " " + request.getRequestURI());
   }
 
   private static boolean shouldRecord(HttpServletRequest request, HttpServletResponse response) {

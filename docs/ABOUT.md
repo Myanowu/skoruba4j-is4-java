@@ -77,9 +77,15 @@ Status matches [COMPATIBILITY.md](COMPATIBILITY.md): **Y** ships with tests; **P
 | `aud` = `ApiResources.Name` | Y |
 | `sub` = Identity user id | Y |
 | `scope` claim | Y |
+| UserClaims / RoleClaims (resource claim types) | Y |
 | Opaque / reference tokens at the STS | N |
 | Username or email login | Y |
 | ASP.NET Identity password verify / v3 write | Y |
+| External login (Microsoft / Google / WeChat / WhatsApp) | P | Config + ClientProperties; see COMPATIBILITY |
+| GitHub external | N |
+| TOTP (`TwoFactorEnabled` + AuthenticatorKey) | Y |
+| Account on signed-in `/` (password, unlink, grants) | Y |
+| Optional `/register` | P | `idserver.login.allow-register` (default false) |
 
 Admin sign-in is `idserver.admin.login-mode`: **local** (Users table), **sts-password** (Admin form → STS password grant, no browser redirect; not cross-app SSO), or **sts-oidc** (browser OIDC RP / SSO). Control → Settings → **Admin sign-in** picks one mode; legacy `oidc-enabled` still maps when `login-mode` is absent.
 

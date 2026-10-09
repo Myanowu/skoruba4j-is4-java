@@ -409,6 +409,135 @@ public final class UserRepository {
         userId);
   }
 
+  /**
+   * Deletes all claims whose {@code ClaimType} is in {@code types} (case-insensitive). Used by Org
+   * sync to replace managed claim types without touching unrelated claims.
+   */
+  public int deleteClaimsByTypes(String userId, java.util.Collection<String> types) {
+    if (userId == null || userId.isBlank() || types == null || types.isEmpty()) {
+      return 0;
+    }
+    java.util.LinkedHashSet<String> needles = new java.util.LinkedHashSet<>();
+    for (String type : types) {
+      if (type != null && !type.isBlank()) {
+        needles.add(type.trim().toLowerCase(java.util.Locale.ROOT));
+      }
+    }
+    if (needles.isEmpty()) {
+      return 0;
+    }
+    int deleted = 0;
+    for (UserClaim claim : listClaims(userId)) {
+      if (claim.type() == null) {
+        continue;
+      }
+      if (needles.contains(claim.type().trim().toLowerCase(java.util.Locale.ROOT))) {
+        deleted += deleteClaim(userId, claim.id());
+      }
+    }
+    return deleted;
+  }
+
+  /**
+   * Replaces claims for the given types: delete existing of those types, then insert {@code
+   * replacements}. Types not listed are left unchanged.
+   */
+  public void replaceClaimsByTypes(
+      String userId, java.util.Collection<UserClaim> replacements) {
+    if (userId == null || userId.isBlank()) {
+      return;
+    }
+    java.util.LinkedHashSet<String> types = new java.util.LinkedHashSet<>();
+    java.util.List<UserClaim> rows =
+        replacements == null ? java.util.List.of() : java.util.List.copyOf(replacements);
+    for (UserClaim claim : rows) {
+      if (claim != null && claim.type() != null && !claim.type().isBlank()) {
+        types.add(claim.type().trim());
+      }
+    }
+    deleteClaimsByTypes(userId, types);
+    for (UserClaim claim : rows) {
+      if (claim == null || claim.type() == null || claim.type().isBlank()) {
+        continue;
+      }
+      addClaim(userId, claim.type().trim(), claim.value());
+    }
+  }
+
+  /** ASP.NET Identity authenticator key ({@code UserTokens} / {@code AspNetUserTokens}). */
+  public Optional<String> findAuthenticatorKey(String userId) {
+    return findToken(
+        userId, IdentityAuthenticator.LOGIN_PROVIDER, IdentityAuthenticator.AUTHENTICATOR_KEY_NAME);
+  }
+
+  public void setAuthenticatorKey(String userId, String key) {
+    upsertToken(
+        userId,
+        IdentityAuthenticator.LOGIN_PROVIDER,
+        IdentityAuthenticator.AUTHENTICATOR_KEY_NAME,
+        key);
+  }
+
+  public void clearAuthenticatorKey(String userId) {
+    deleteToken(
+        userId, IdentityAuthenticator.LOGIN_PROVIDER, IdentityAuthenticator.AUTHENTICATOR_KEY_NAME);
+  }
+
+  public Optional<String> findToken(String userId, String loginProvider, String name) {
+    if (userId == null || userId.isBlank() || loginProvider == null || name == null) {
+      return Optional.empty();
+    }
+    String sql =
+        "SELECT "
+            + dialect.quote("Value")
+            + " FROM "
+            + dialect.quote(tables.userTokens())
+            + " WHERE "
+            + dialect.quote("UserId")
+            + " = ? AND "
+            + dialect.quote("LoginProvider")
+            + " = ? AND "
+            + dialect.quote("Name")
+            + " = ?";
+    return Jdbc.queryOne(dataSource, sql, rs -> rs.getString(1), userId, loginProvider, name)
+        .filter(v -> v != null && !v.isBlank());
+  }
+
+  public void upsertToken(String userId, String loginProvider, String name, String value) {
+    deleteToken(userId, loginProvider, name);
+    String sql =
+        "INSERT INTO "
+            + dialect.quote(tables.userTokens())
+            + " ("
+            + dialect.quote("UserId")
+            + ", "
+            + dialect.quote("LoginProvider")
+            + ", "
+            + dialect.quote("Name")
+            + ", "
+            + dialect.quote("Value")
+            + ") VALUES (?, ?, ?, ?)";
+    Jdbc.execute(
+        dataSource, sql, userId, loginProvider, name, value == null ? "" : value);
+  }
+
+  public void deleteToken(String userId, String loginProvider, String name) {
+    Jdbc.execute(
+        dataSource,
+        "DELETE FROM "
+            + dialect.quote(tables.userTokens())
+            + " WHERE "
+            + dialect.quote("UserId")
+            + " = ? AND "
+            + dialect.quote("LoginProvider")
+            + " = ? AND "
+            + dialect.quote("Name")
+            + " = ?",
+        userId,
+        loginProvider,
+        name);
+  }
+
   public List<UserLogin> listLogins(String userId) {
     String sql =
         "SELECT "

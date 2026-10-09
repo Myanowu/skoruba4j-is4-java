@@ -104,7 +104,8 @@ class LoginPageTest {
 
   @Test
   void signedInPageShowsUserId() {
-    String html = SignedInPage.render("guid-1", "alice", "a@b.c");
+    String html =
+        SignedInPage.render("guid-1", "alice", "a@b.c", false, java.util.List.of(), null);
     assertTrue(html.contains("Signed in"));
     assertTrue(html.contains("guid-1"));
     assertTrue(html.contains("alice"));
@@ -114,6 +115,7 @@ class LoginPageTest {
     assertTrue(html.contains("grantsHelp"));
     assertTrue(html.contains("PersistedGrants"));
     assertTrue(html.contains("Change password"));
+    assertTrue(html.contains("External sign-ins"));
     assertTrue(html.contains("openJson('/.well-known/openid-configuration'"));
     assertTrue(html.contains("openJson('/health'"));
     assertTrue(html.contains("jsonDlg"));

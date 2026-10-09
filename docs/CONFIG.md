@@ -18,14 +18,21 @@ idserver:
     password: ${IDSERVER_DB_PASSWORD:}
   identity:
     table-style: skoruba  # aspnet
+  brand:
+    product-name: Skoruba4j STS
+    tagline: OpenID Provider for IdentityServer4 clients.
   login:
     resolution-policy: username  # email-or-username
+    allow-register: false        # demo/public only; enables /register
+    register-captcha: true       # simple math captcha when allow-register
   logout:
     end-session: compatible  # compatible = IS4 clients (refresh allowed); strict = expired JWT is dead, no refresh, client must re-login
   issuer-uri: https://localhost:5051
   admin:
     role: MyRole          # must exist in Roles; do not auto-inject
 ```
+
+Horizontal scale without Redis: [SCALE.md](SCALE.md). STS account self-service: signed-in home `/` (password, unlink external logins, grants).
 
 Default install points at bundled SQLite (`${IDSERVER_HOME}/data/skoruba4j.sqlite`). Packaged `dist/config/idserver-local.yml` is loaded last (`spring.config.additional-location`) so it overrides profile yaml, including a Spring `local` profile’s JDBC keys. Private SQL Server (or other) URLs stay in gitignored `application-local.yml` only when you put them back in the install overlay or env. Do not commit Azure hosts or passwords.
 

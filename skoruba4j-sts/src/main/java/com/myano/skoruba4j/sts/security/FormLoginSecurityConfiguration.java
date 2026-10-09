@@ -1,5 +1,6 @@
 package com.myano.skoruba4j.sts.security;
 
+import com.myano.skoruba4j.domain.configstore.AuditLogWriter;
 import com.myano.skoruba4j.domain.jdbc.JdbcRepositories;
 import com.myano.skoruba4j.domain.password.IdentityPasswordHasher;
 import com.myano.skoruba4j.protocol.Is4Paths;
@@ -24,7 +25,10 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import com.myano.skoruba4j.protocol.CurrentIdentityUserFilter;
+import com.myano.skoruba4j.protocol.IdentityUserPresence;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.savedrequest.RequestCache;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
@@ -36,6 +40,25 @@ public class FormLoginSecurityConfiguration {
   @Bean
   public IdentityUserDetailsService identityUserDetailsService(Optional<JdbcRepositories> jdbc) {
     return new IdentityUserDetailsService(jdbc);
+  }
+
+  /** Auth-cookie logins are checked against the current Users table on every request. */
+  @Bean
+  public IdentityUserPresence identityUserPresence(Optional<JdbcRepositories> jdbc) {
+    return new IdentityUserPresence() {
+      @Override
+      public boolean databaseConfigured() {
+        return jdbc.isPresent();
+      }
+
+      @Override
+      public boolean exists(String userId) {
+        return jdbc.isPresent()
+            && userId != null
+            && !userId.isBlank()
+            && jdbc.get().users().findById(userId).isPresent();
+      }
+    };
   }
 
   @Bean
@@ -82,7 +105,9 @@ public class FormLoginSecurityConfiguration {
       IdserverProperties props,
       ExternalIdentityLinker linker,
       IdentityUserDetailsService identityUserDetailsService,
-      IdentitySpringPasswordEncoder identityLoginPasswordEncoder)
+      IdentitySpringPasswordEncoder identityLoginPasswordEncoder,
+      IdentityUserPresence identityUserPresence,
+      Optional<JdbcRepositories> jdbc)
       throws Exception {
     // Register Dao provider on the filter-chain builder (not a shared AuthenticationManager).
     // Setting http.authenticationManager(formOnly) drops oauth2Login's
@@ -99,6 +124,8 @@ public class FormLoginSecurityConfiguration {
                         "/health",
                         "/error",
                         "/login",
+                        "/login/2fa",
+                        "/register",
                         "/login/choose",
                         "/login/choose/**",
                         "/external/confirm",
@@ -134,10 +161,22 @@ public class FormLoginSecurityConfiguration {
                 form.loginPage("/login")
                     .loginProcessingUrl("/login")
                     .successHandler(
-                        loginSuccessHandler(
-                            requestCache, securityContextRepository, registeredClientRepository))
+                        new TwoFactorGateSuccessHandler(
+                            jdbc,
+                            securityContextRepository,
+                            loginSuccessHandler(
+                                requestCache,
+                                securityContextRepository,
+                                registeredClientRepository,
+                                jdbc)))
                     .failureHandler(
                         (request, response, exception) -> {
+                          String username = request.getParameter("username");
+                          String reason =
+                              exception == null
+                                  ? "authentication_failed"
+                                  : exception.getClass().getSimpleName();
+                          AuditLogWriter.loginFailure(jdbc, username, reason);
                           String location = "/login?error";
                           String returnUrl = request.getParameter("ReturnUrl");
                           if (Is4ReturnUrls.isSafe(returnUrl)) {
@@ -160,6 +199,9 @@ public class FormLoginSecurityConfiguration {
                                     registeredClientRepository,
                                     request.getParameter("client_id"),
                                     request.getParameter("post_logout_redirect_uri")))));
+    http.addFilterAfter(
+        new CurrentIdentityUserFilter(identityUserPresence, securityContextRepository),
+        SecurityContextHolderFilter.class);
     if (props.anyExternalLoginConfigured()) {
       ExternalOidcLoginSuccessHandler externalSuccess =
           new ExternalOidcLoginSuccessHandler(
@@ -200,9 +242,10 @@ public class FormLoginSecurityConfiguration {
   private static Is4LoginSuccessHandler loginSuccessHandler(
       RequestCache requestCache,
       SecurityContextRepository securityContextRepository,
-      RegisteredClientRepository registeredClientRepository) {
+      RegisteredClientRepository registeredClientRepository,
+      Optional<JdbcRepositories> jdbc) {
     Is4LoginSuccessHandler handler =
-        new Is4LoginSuccessHandler(securityContextRepository, registeredClientRepository);
+        new Is4LoginSuccessHandler(securityContextRepository, registeredClientRepository, jdbc);
     handler.setRequestCache(requestCache);
     return handler;
   }

@@ -35,6 +35,16 @@ Do not put the API **scope** name in `aud` unless that string is also the resour
 
 `sub` is the ASP.NET Identity user primary key (`Users.Id` / `AspNetUsers.Id`), typically a GUID string.
 
+## UserClaims / RoleClaims on tokens
+
+IdentityServer4’s profile service only emits claim types requested by the granted scopes’ resources. This project does the same:
+
+1. Load `UserClaims` plus `RoleClaims` for the user’s roles.
+2. Keep types listed on `IdentityResourceClaims` / `ApiScopeClaims` / `ApiResourceClaims` for those scopes.
+3. **id_token**: include filtered identity-resource claims only when `Clients.AlwaysIncludeUserClaimsInIdToken` is true; otherwise they appear on **userinfo**.
+4. **access_token**: include filtered ApiScope / ApiResource claim types.
+5. Do not overwrite reserved JWT / protocol names (`sub`, `role`, `scope`, …).
+
 ## Client secrets
 
 IS4 `ClientSecrets.Value` is often a **SHA-256 hash** of the secret (`Type` = SharedSecret). Token-endpoint authentication must hash the incoming secret the same way. Never treat the column as UTF-8 plaintext without checking `Type`.

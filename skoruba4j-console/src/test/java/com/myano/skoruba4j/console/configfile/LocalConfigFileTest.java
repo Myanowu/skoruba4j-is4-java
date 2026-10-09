@@ -200,6 +200,22 @@ class LocalConfigFileTest {
   }
 
   @Test
+  void registerFlagsDefaultOffAndOnAndRoundTrip() {
+    LocalConfigFile.Form defaults = LocalConfigFile.load("", "");
+    assertFalse(defaults.allowRegister);
+    assertTrue(defaults.registerCaptcha);
+    LocalConfigFile.Form form = baseForm();
+    form.allowRegister = true;
+    form.registerCaptcha = false;
+    String yaml = LocalConfigFile.write(form, "");
+    assertEquals("true", LocalConfigFile.nestedYamlValue(yaml, "login", "allow-register"));
+    assertEquals("false", LocalConfigFile.nestedYamlValue(yaml, "login", "register-captcha"));
+    LocalConfigFile.Form loaded = LocalConfigFile.load(yaml, "");
+    assertTrue(loaded.allowRegister);
+    assertFalse(loaded.registerCaptcha);
+  }
+
+  @Test
   void debugLoginWritesUnderLoginAndKeepsPasswordWhenBlank() {
     LocalConfigFile.Form form = baseForm();
     form.debugMode = true;

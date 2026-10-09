@@ -1,11 +1,14 @@
 package com.myano.skoruba4j.sts.security;
 
+import com.myano.skoruba4j.domain.configstore.AuditLogWriter;
+import com.myano.skoruba4j.domain.jdbc.JdbcRepositories;
 import com.myano.skoruba4j.protocol.AccountChooser;
 import com.myano.skoruba4j.protocol.Is4ReturnUrls;
 import com.myano.skoruba4j.protocol.RpResume;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Optional;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,23 +27,32 @@ import org.springframework.security.web.savedrequest.SavedRequest;
 public final class Is4LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
   private final SecurityContextRepository securityContextRepository;
   private final RegisteredClientRepository clients;
+  private final Optional<JdbcRepositories> jdbc;
   private RequestCache requestCache;
 
   public Is4LoginSuccessHandler() {
-    this(new HttpSessionSecurityContextRepository(), null);
+    this(new HttpSessionSecurityContextRepository(), null, Optional.empty());
   }
 
   public Is4LoginSuccessHandler(SecurityContextRepository securityContextRepository) {
-    this(securityContextRepository, null);
+    this(securityContextRepository, null, Optional.empty());
   }
 
   public Is4LoginSuccessHandler(
       SecurityContextRepository securityContextRepository, RegisteredClientRepository clients) {
+    this(securityContextRepository, clients, Optional.empty());
+  }
+
+  public Is4LoginSuccessHandler(
+      SecurityContextRepository securityContextRepository,
+      RegisteredClientRepository clients,
+      Optional<JdbcRepositories> jdbc) {
     this.securityContextRepository =
         securityContextRepository == null
             ? new HttpSessionSecurityContextRepository()
             : securityContextRepository;
     this.clients = clients;
+    this.jdbc = jdbc == null ? Optional.empty() : jdbc;
     setDefaultTargetUrl("/");
     setAlwaysUseDefaultTargetUrl(false);
   }
@@ -58,6 +70,8 @@ public final class Is4LoginSuccessHandler extends SimpleUrlAuthenticationSuccess
     context.setAuthentication(authentication);
     SecurityContextHolder.setContext(context);
     securityContextRepository.saveContext(context, request, response);
+    AuditLogWriter.loginSuccess(
+        jdbc, authentication == null ? null : authentication.getName());
     AccountChooser.markFreshLogin(request.getSession(true));
     String target = determineTargetUrl(request, response);
     if (Is4ReturnUrls.isSafe(target)) {

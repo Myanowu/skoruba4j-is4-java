@@ -5,6 +5,7 @@ import com.myano.skoruba4j.domain.PageQuery;
 import com.myano.skoruba4j.domain.PageResult;
 import com.myano.skoruba4j.domain.identity.IdentityRole;
 import com.myano.skoruba4j.domain.identity.IdentityUser;
+import com.myano.skoruba4j.domain.identity.TotpCodes;
 import com.myano.skoruba4j.domain.identity.UserClaim;
 import com.myano.skoruba4j.domain.identity.UserLogin;
 import com.myano.skoruba4j.domain.identity.UserProfileWrite;
@@ -145,6 +146,29 @@ public class UsersAdminController {
       @PathVariable String id, HttpServletRequest request, RedirectAttributes redirect) {
     repos().users().update(id, readProfile(request));
     AdminRequests.notice(redirect, "Saved");
+    return new RedirectView("/admin/users/" + id + "?tab=profile", true);
+  }
+
+  @PostMapping("/admin/users/{id}/authenticator")
+  public RedirectView resetAuthenticator(
+      @PathVariable String id, HttpServletRequest request, RedirectAttributes redirect) {
+    IdentityUser user =
+        repos()
+            .users()
+            .findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    String key = TotpCodes.generateKey();
+    repos().users().setAuthenticatorKey(id, key);
+    String account =
+        user.email() != null && !user.email().isBlank() ? user.email() : user.userName();
+    String uri = TotpCodes.otpAuthUri("Skoruba4j", account, key);
+    AdminRequests.notice(
+        redirect,
+        "Authenticator key set. Secret (once): "
+            + key
+            + " — otpauth: "
+            + uri
+            + ". Enable Two-factor on the profile, then the user signs in with password + app code.");
     return new RedirectView("/admin/users/" + id + "?tab=profile", true);
   }
 
@@ -333,7 +357,26 @@ public class UsersAdminController {
     } else {
       html.append("<div class=\"form-actions\"><button type=\"submit\">Save profile</button></div>");
     }
-    html.append("</form></div>");
+    html.append("</form>");
+    if (!create) {
+      boolean hasKey = repos().users().findAuthenticatorKey(id).isPresent();
+      html.append("<div class=\"password-card\" style=\"margin-top:1rem\">");
+      html.append("<h2>Authenticator (TOTP)</h2>");
+      html.append(
+          "<p class=\"hint\" style=\"margin:0 0 .75rem\">ASP.NET Identity compatible: key in "
+              + "<code>UserTokens</code> (<code>[AspNetUserStore]</code> / <code>AuthenticatorKey</code>). "
+              + "Status: <strong>")
+          .append(hasKey ? "key present" : "no key")
+          .append("</strong>. Tick <em>Two-factor enabled</em> above after the user has enrolled.</p>");
+      html.append("<form method=\"post\" action=\"/admin/users/")
+          .append(AdminHtml.esc(id))
+          .append("/authenticator\">")
+          .append(csrf);
+      html.append(
+          "<div class=\"form-actions\"><button type=\"submit\">Generate / reset authenticator key</button></div>");
+      html.append("</form></div>");
+    }
+    html.append("</div>");
 
     // Password (aligned with C# UserChangePassword: username + password + confirm)
     html.append("<div class=\"tab-panel")

@@ -48,6 +48,7 @@ public class LoginController {
       Authentication authentication,
       @RequestParam(value = "error", required = false) String error,
       @RequestParam(value = "logout", required = false) String logout,
+      @RequestParam(value = "registered", required = false) String registered,
       @RequestParam(value = "ReturnUrl", required = false) String returnUrl,
       @RequestParam(value = "idp", required = false) String idpParam)
       throws IOException {
@@ -105,6 +106,7 @@ public class LoginController {
     return LoginPage.render(
         error != null && errorCode == null,
         logout != null,
+        registered != null,
         parameterName,
         token,
         returnUrl,
@@ -114,7 +116,10 @@ public class LoginController {
         showWhatsApp,
         showWeChat,
         waCode,
-        waPrefill);
+        waPrefill,
+        props.getBrand().getProductName(),
+        props.getBrand().getTagline(),
+        props.getLogin().isAllowRegister());
   }
 
   private String idpStartPath(String idp, String clientId) {

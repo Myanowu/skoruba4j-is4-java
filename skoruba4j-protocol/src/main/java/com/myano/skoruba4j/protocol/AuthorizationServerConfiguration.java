@@ -42,7 +42,9 @@ import org.springframework.security.oauth2.server.authorization.token.JwtEncodin
 import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.context.DelegatingSecurityContextRepository;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
@@ -73,6 +75,7 @@ public class AuthorizationServerConfiguration {
       OAuth2AuthorizationService authorizationService,
       Optional<JdbcRepositories> jdbc,
       SecurityContextRepository securityContextRepository,
+      ObjectProvider<IdentityUserPresence> currentUsers,
       @Value("${idserver.logout.end-session:compatible}") String endSessionMode)
       throws Exception {
     EndSessionMode logoutMode = EndSessionMode.fromConfig(endSessionMode);
@@ -147,6 +150,12 @@ public class AuthorizationServerConfiguration {
                     new Is4LoginAuthenticationEntryPoint(),
                     new MediaTypeRequestMatcher(MediaType.TEXT_HTML)));
     http.requestCache(cache -> cache.requestCache(httpSessionRequestCache()));
+    IdentityUserPresence presence = currentUsers.getIfAvailable();
+    if (presence != null) {
+      http.addFilterAfter(
+          new CurrentIdentityUserFilter(presence, securityContextRepository),
+          SecurityContextHolderFilter.class);
+    }
     return http.build();
   }
 

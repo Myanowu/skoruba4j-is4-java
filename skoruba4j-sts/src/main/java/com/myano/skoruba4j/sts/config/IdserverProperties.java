@@ -9,6 +9,7 @@ public class IdserverProperties {
   private final Db db = new Db();
   private final Identity identity = new Identity();
   private final Login login = new Login();
+  private final Brand brand = new Brand();
   private final Admin admin = new Admin();
   private final Smtp smtp = new Smtp();
   private final ExternalLogin externalLogin = new ExternalLogin();
@@ -24,6 +25,10 @@ public class IdserverProperties {
 
   public Login getLogin() {
     return login;
+  }
+
+  public Brand getBrand() {
+    return brand;
   }
 
   public Admin getAdmin() {
@@ -202,6 +207,10 @@ public class IdserverProperties {
      */
     private boolean debugMode = false;
     private String debugPassword = "";
+    /** When true, anonymous {@code /register} is available (demo / public only). */
+    private boolean allowRegister = false;
+    /** Simple math captcha on register when {@link #allowRegister} is true. */
+    private boolean registerCaptcha = true;
 
     public String getResolutionPolicy() {
       return resolutionPolicy;
@@ -233,6 +242,44 @@ public class IdserverProperties {
 
     public void setDebugPassword(String debugPassword) {
       this.debugPassword = debugPassword;
+    }
+
+    public boolean isAllowRegister() {
+      return allowRegister;
+    }
+
+    public void setAllowRegister(boolean allowRegister) {
+      this.allowRegister = allowRegister;
+    }
+
+    public boolean isRegisterCaptcha() {
+      return registerCaptcha;
+    }
+
+    public void setRegisterCaptcha(boolean registerCaptcha) {
+      this.registerCaptcha = registerCaptcha;
+    }
+  }
+
+  /** Login / account chrome labels (not pixel-identical Skoruba; no org logos in oss). */
+  public static class Brand {
+    private String productName = "Skoruba4j STS";
+    private String tagline = "OpenID Provider for IdentityServer4 clients.";
+
+    public String getProductName() {
+      return productName == null || productName.isBlank() ? "Skoruba4j STS" : productName.trim();
+    }
+
+    public void setProductName(String productName) {
+      this.productName = productName;
+    }
+
+    public String getTagline() {
+      return tagline == null ? "" : tagline.trim();
+    }
+
+    public void setTagline(String tagline) {
+      this.tagline = tagline;
     }
   }
 

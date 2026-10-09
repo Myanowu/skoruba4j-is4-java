@@ -12,7 +12,10 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
-/** Adds profile/email claims to ID tokens. Access-token {@code aud} is handled separately. */
+/**
+ * Adds profile/email, {@code role}, ClientClaims, and filtered UserClaims/RoleClaims. Access-token
+ * {@code aud} is handled separately.
+ */
 public final class IdentityTokenClaimsCustomizer implements OAuth2TokenCustomizer<JwtEncodingContext> {
   private final Optional<JdbcRepositories> jdbc;
 
@@ -26,6 +29,8 @@ public final class IdentityTokenClaimsCustomizer implements OAuth2TokenCustomize
     boolean idToken = "id_token".equals(context.getTokenType().getValue());
     boolean clientCredentials =
         AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType());
+    String userId = context.getPrincipal() == null ? null : context.getPrincipal().getName();
+    Set<String> scopes = context.getAuthorizedScopes();
     if (context.getPrincipal() != null && (access || idToken) && !clientCredentials) {
       List<String> roles = IdentityClaims.roleNames(context.getPrincipal().getAuthorities());
       if (!roles.isEmpty()) {
@@ -36,21 +41,57 @@ public final class IdentityTokenClaimsCustomizer implements OAuth2TokenCustomize
       addClientClaims(context, clientCredentials);
       if (!clientCredentials) {
         Is4AccessTokenClaims.applyLocalAuthenticationMethod(context);
+        addProfileClaims(context, userId, scopes, true);
       }
     }
     if (!idToken) {
       return;
     }
-    String userId = context.getPrincipal() == null ? null : context.getPrincipal().getName();
     if (userId == null || userId.isBlank()) {
       return;
     }
-    Set<String> scopes = context.getAuthorizedScopes();
     IdentityUser user = jdbc.flatMap(repos -> repos.users().findById(userId)).orElse(null);
     Map<String, Object> claims = IdentityClaims.claims(userId, user, scopes);
     claims.forEach(
         (name, value) -> {
           if (!IdTokenClaimNames.SUB.equals(name) && value != null) {
+            context.getClaims().claim(name, value);
+          }
+        });
+    if (includeUserClaimsInIdToken(context)) {
+      addProfileClaims(context, userId, scopes, false);
+    }
+  }
+
+  /**
+   * IS4 {@code AlwaysIncludeUserClaimsInIdToken}: put identity-resource UserClaims on the id_token
+   * (otherwise they stay on userinfo only).
+   */
+  private boolean includeUserClaimsInIdToken(JwtEncodingContext context) {
+    if (jdbc.isEmpty() || context.getRegisteredClient() == null) {
+      return false;
+    }
+    return jdbc
+        .get()
+        .clients()
+        .findEnabledByClientId(context.getRegisteredClient().getClientId())
+        .map(client -> client.alwaysIncludeUserClaimsInIdToken())
+        .orElse(false);
+  }
+
+  private void addProfileClaims(
+      JwtEncodingContext context, String userId, Set<String> scopes, boolean accessToken) {
+    if (jdbc.isEmpty() || userId == null || userId.isBlank()) {
+      return;
+    }
+    JdbcRepositories repos = jdbc.get();
+    Map<String, Object> profile =
+        accessToken
+            ? Is4UserProfileClaims.forAccessToken(repos, userId, scopes)
+            : Is4UserProfileClaims.forIdentityToken(repos, userId, scopes);
+    profile.forEach(
+        (name, value) -> {
+          if (value != null) {
             context.getClaims().claim(name, value);
           }
         });

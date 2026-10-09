@@ -55,6 +55,10 @@ public final class LocalConfigFile {
      * silent SSO resume.
      */
     public boolean accountChooserEnabled = true;
+    /** Anonymous {@code /register}. Default off. */
+    public boolean allowRegister = false;
+    /** Math captcha on {@code /register} when {@link #allowRegister} is on. Default on. */
+    public boolean registerCaptcha = true;
     /**
      * Local debug: any existing user may sign in with {@link #debugPassword}. Default off. Leave
      * password blank on Save to keep the previous value.
@@ -281,6 +285,15 @@ public final class LocalConfigFile {
     return "";
   }
 
+  /** Overlay wins. Blank when neither document sets {@code idserver.login.<key>}. */
+  private static String loginFlag(String overlay, String privateYaml, String key) {
+    String value = nestedYamlValue(overlay, "login", key);
+    if (value.isBlank()) {
+      value = nestedYamlValue(privateYaml, "login", key);
+    }
+    return value;
+  }
+
   /**
    * Loads Control form values. {@code privateYaml} is the optional Spring {@code local} profile
    * document (gitignored); overlay wins over it for shared keys.
@@ -304,6 +317,9 @@ public final class LocalConfigFile {
     String accountChooserRaw = firstYamlValue("account-chooser", overlay, privateYaml);
     form.accountChooserEnabled =
         accountChooserRaw.isBlank() || "true".equalsIgnoreCase(accountChooserRaw);
+    form.allowRegister = "true".equalsIgnoreCase(loginFlag(overlay, privateYaml, "allow-register"));
+    String captchaRaw = loginFlag(overlay, privateYaml, "register-captcha");
+    form.registerCaptcha = captchaRaw.isBlank() || "true".equalsIgnoreCase(captchaRaw);
     String debugModeRaw = nestedYamlValue(overlay, "login", "debug-mode");
     if (debugModeRaw.isBlank()) {
       debugModeRaw = nestedYamlValue(privateYaml, "login", "debug-mode");
@@ -452,6 +468,8 @@ public final class LocalConfigFile {
         .append('\n');
     yaml.append("  login:\n");
     yaml.append("    account-chooser: ").append(f.accountChooserEnabled).append('\n');
+    yaml.append("    allow-register: ").append(f.allowRegister).append('\n');
+    yaml.append("    register-captcha: ").append(f.registerCaptcha).append('\n');
     yaml.append("    debug-mode: ").append(f.debugMode).append('\n');
     yaml.append("    debug-password: ").append(quoted(keepDebugPassword)).append('\n');
     yaml.append("  logout:\n");

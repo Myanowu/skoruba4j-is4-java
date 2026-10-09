@@ -39,6 +39,7 @@ Update this file in the same change as code. Do not mark **Y** without a test.
 | `aud` = `ApiResources.Name` via `ApiResourceScopes` | Y |
 | `sub` = Identity user id | Y |
 | `scope` claim present | Y |
+| UserClaims / RoleClaims filtered by resource claim types | Y | `Is4UserProfileClaimsTest`; id_token only if `AlwaysIncludeUserClaimsInIdToken` |
 | Opaque / reference tokens | N (unless later) |
 | ASP.NET Data Protection cookies | N |
 
@@ -52,10 +53,18 @@ Update this file in the same change as code. Do not mark **Y** without a test.
 | ASP.NET Identity v2/v3 password verify | Y |
 | Write new hashes as v3 | Y |
 | Forgot password (SMTP) | Y | `/forgot-password`; empty `idserver.smtp.host` skips send; does not reveal whether the account exists |
-| Register | P |
-| reCAPTCHA (optional) | P |
-| TOTP (`TwoFactorEnabled`) | P |
-| GitHub / Azure AD external | N unless a deployment already enabled them |
+| Register | P | Off by default (`idserver.login.allow-register`); math captcha optional |
+| reCAPTCHA (optional) | N | Use built-in math captcha when register is on; no Google reCAPTCHA |
+| Account self-service (signed-in `/`) | Y | Profile, unlink external logins, change password, grants; `/account` redirects home |
+| Login branding (`idserver.brand.*`) | Y | Product name + tagline on login/register |
+| Bulk users `POST /api/Users/Bulk` | P | Cap 200; not SCIM; endpoint shipped |
+| Org claim sync `PUT /api/Users/{id}/Claims/Sync` | Y | `UserClaimsReplaceTest`; replaces listed types only |
+| TOTP (`TwoFactorEnabled`) | Y | `TotpCodesTest`; STS `/login/2fa` when flag + AuthenticatorKey; Admin generate key |
+| Microsoft Entra ID (Azure AD) external | P | STS `idserver.microsoft.*` + ClientProperties; link-existing |
+| Google external | P | STS `idserver.google.*` + ClientProperties; link-existing |
+| WeChat QR external | P | STS `/external/wechat`; ClientProperties `skoruba4j.external.wechat` |
+| WhatsApp QR reply-login | P | STS `/external/whatsapp` + Meta webhook |
+| GitHub external | N | Not implemented |
 
 ## Admin
 
@@ -79,5 +88,5 @@ Update this file in the same change as code. Do not mark **Y** without a test.
 | Stable JWT signing JWK file | Y | `idserver.signing.jwk-file` (IS4 `tempkey.jwk` analogue) |
 | Encrypted STS auth cookie (survive restart) | Y | `SKORUBA4J_STS_AUTH` + `idserver.auth-cookie.key-file` (not ASP.NET DP) |
 | `AuditLog` browse / delete-older | Y | Admin `/admin/audit-logs`; table `AuditLog` |
-| `AuditLog` / `Log` write | P | Admin mutating POSTs write lightweight `AdminRequestEvent`; full Skoruba event taxonomy not ported; `Log` (errors) not yet |
+| `AuditLog` / `Log` write | P | Admin mutating POSTs + STS login success/failure + token issued/failure via `AuditLogWriter`; full Skoruba event taxonomy / `Log` (errors) not yet |
 | `DataProtectionKeys` | N | Do not decrypt C# cookies; Java uses its own key file |

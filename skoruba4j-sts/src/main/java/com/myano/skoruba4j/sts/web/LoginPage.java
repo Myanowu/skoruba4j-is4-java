@@ -117,6 +117,42 @@ public final class LoginPage {
       boolean showWeChat,
       String whatsappQrCode,
       String whatsappPrefill) {
+    return render(
+        error,
+        logout,
+        false,
+        csrfParameterName,
+        csrfToken,
+        returnUrl,
+        errorCode,
+        showGoogle,
+        showMicrosoft,
+        showWhatsApp,
+        showWeChat,
+        whatsappQrCode,
+        whatsappPrefill,
+        "Skoruba4j STS",
+        "OpenID Provider for IdentityServer4 clients.",
+        false);
+  }
+
+  public static String render(
+      boolean error,
+      boolean logout,
+      boolean registered,
+      String csrfParameterName,
+      String csrfToken,
+      String returnUrl,
+      String errorCode,
+      boolean showGoogle,
+      boolean showMicrosoft,
+      boolean showWhatsApp,
+      boolean showWeChat,
+      String whatsappQrCode,
+      String whatsappPrefill,
+      String productName,
+      String tagline,
+      boolean showRegister) {
     String param = csrfParameterName == null || csrfParameterName.isBlank() ? "_csrf" : csrfParameterName;
     String token = csrfToken == null ? "" : csrfToken;
     String action = "/login";
@@ -131,6 +167,9 @@ public final class LoginPage {
     }
     if (logout) {
       form.append(StsPages.notice("ok", "You are signed out."));
+    }
+    if (registered) {
+      form.append(StsPages.notice("ok", "Account created. You can sign in now."));
     }
     boolean hasQr =
         showWhatsApp && whatsappQrCode != null && !whatsappQrCode.isBlank();
@@ -196,10 +235,19 @@ public final class LoginPage {
       form.append("<p class=\"oidc-primary\"><a class=\"sign-in\" href=\"/external/wechat\">");
       form.append("Sign in with WeChat (QR)</a></p>");
     }
+    if (showRegister) {
+      form.append("<p class=\"muted\" style=\"margin-top:1rem\"><a href=\"/register\">Create an account</a></p>");
+    }
+    String kicker =
+        productName == null || productName.isBlank() ? "Skoruba4j STS" : productName.trim();
+    String subtitle =
+        tagline == null || tagline.isBlank()
+            ? "OpenID Provider for IdentityServer4 clients."
+            : tagline.trim();
     return StsPages.document(
         "Sign in",
         "auth",
-        StsPages.card("Skoruba4j STS", "Sign in", "OpenID Provider for IdentityServer4 clients.", form.toString()));
+        StsPages.card(kicker, "Sign in", subtitle, form.toString()));
   }
 
   static String externalErrorMessage(String code) {

@@ -72,6 +72,47 @@ final class AccountPages {
         StsPages.card("Skoruba4j STS", "Reset link is not valid", "", inner));
   }
 
+  /** Shown when self-registration is off. The setting sits on its own line so the key does not wrap mid-word. */
+  static String registerDisabled(String productName) {
+    String kicker =
+        productName == null || productName.isBlank() ? "Skoruba4j STS" : productName.trim();
+    String inner =
+        "<p class=\"muted\">Self-registration is turned off. Turn it on in the STS config or Control Settings, then restart STS.</p>"
+            + "<code class=\"setting\">idserver.login.allow-register=true</code>"
+            + "<a class=\"btn\" href=\"/login\">Back to sign in</a>";
+    return StsPages.document(
+        "Register",
+        "auth",
+        StsPages.card(kicker, "Registration is disabled", "", inner));
+  }
+
+  static String register(String productName, String error, String captchaPrompt) {
+    StringBuilder form = new StringBuilder();
+    form.append(StsPages.notice("err", error));
+    form.append("<form method=\"post\" action=\"/register\">");
+    form.append("<label for=\"userName\">Username</label>");
+    form.append(StsPages.field("userName", "userName", "text", "username", true));
+    form.append("<label for=\"email\">Email</label>");
+    form.append(StsPages.field("email", "email", "email", "email", false));
+    form.append("<label for=\"password\">Password</label>");
+    form.append(StsPages.passwordField("password", "password", "new-password", false));
+    form.append("<label for=\"confirmPassword\">Confirm password</label>");
+    form.append(StsPages.passwordField("confirmPassword", "confirmPassword", "new-password", false));
+    if (captchaPrompt != null && !captchaPrompt.isBlank()) {
+      form.append("<label for=\"captcha\">").append(StsPages.esc(captchaPrompt)).append("</label>");
+      form.append(StsPages.field("captcha", "captcha", "text", "off", false));
+    }
+    form.append("<button class=\"primary\" type=\"submit\">Create account</button>");
+    form.append("</form>");
+    form.append("<p class=\"muted\" style=\"margin-top:1rem\"><a href=\"/login\">Back to sign in</a></p>");
+    String kicker =
+        productName == null || productName.isBlank() ? "Skoruba4j STS" : productName.trim();
+    return StsPages.document(
+        "Register",
+        "auth",
+        StsPages.card(kicker, "Create an account", "Self-registration for this STS.", form.toString()));
+  }
+
   static String changePassword(String error, String ok) {
     StringBuilder form = new StringBuilder();
     form.append(StsPages.notice("err", error));

@@ -33,4 +33,16 @@ class Is4ClientSecretPasswordEncoderTest {
     assertTrue(encoder.matches(secret, stored));
     assertTrue(encoder.matches(secret, secret));
   }
+
+  @Test
+  void matchesAnyJoinedSharedSecret() {
+    Is4ClientSecretPasswordEncoder encoder = new Is4ClientSecretPasswordEncoder();
+    String stored =
+        Is4ClientSecretPasswordEncoder.sha256Base64("old")
+            + Is4ClientSecretPasswordEncoder.SEPARATOR
+            + Is4ClientSecretPasswordEncoder.sha256Base64("current");
+    assertTrue(encoder.matches("current", stored));
+    assertTrue(encoder.matches("old", stored));
+    assertTrue(!encoder.matches("other", stored));
+  }
 }

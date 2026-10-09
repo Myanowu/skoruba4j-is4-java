@@ -28,6 +28,11 @@ idserver:
     table-style: skoruba
   login:
     resolution-policy: username
+    # When true, signed-in browser authorize shows /login/choose once. Control can turn this off.
+    account-chooser: true
+    # Local debug only (Control). Never enable in production with a shared password.
+    debug-mode: false
+    debug-password: ""
   logout:
     end-session: compatible
   # IS4-style persistence: signing key and auth cookie survive process restart.

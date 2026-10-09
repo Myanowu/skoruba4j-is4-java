@@ -53,6 +53,20 @@ class Is4PublicClientAuthenticationConverterTest {
     assertNull(converter.convert(request));
   }
 
+  /** Public refresh without a secret is client_id only (IS4 RequireClientSecret=false). */
+  @Test
+  void convertsRefreshGrantPublicClient() {
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setParameter(OAuth2ParameterNames.GRANT_TYPE, "refresh_token");
+    request.setParameter(OAuth2ParameterNames.CLIENT_ID, "skoruba4j-admin");
+    request.setParameter(OAuth2ParameterNames.REFRESH_TOKEN, "refresh");
+    Authentication auth = converter.convert(request);
+    assertNotNull(auth);
+    assertEquals(
+        ClientAuthenticationMethod.NONE,
+        ((OAuth2ClientAuthenticationToken) auth).getClientAuthenticationMethod());
+  }
+
   @Test
   void ignoresAuthorizationCode() {
     MockHttpServletRequest request = new MockHttpServletRequest();

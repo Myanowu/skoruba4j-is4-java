@@ -42,7 +42,6 @@ import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -326,11 +325,8 @@ public class AdminApiSecurityConfiguration {
   }
 
   static JwtAuthenticationConverter jwtAuthenticationConverter() {
-    JwtGrantedAuthoritiesConverter granted = new JwtGrantedAuthoritiesConverter();
-    granted.setAuthoritiesClaimName("role");
-    granted.setAuthorityPrefix("");
     JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-    converter.setJwtGrantedAuthoritiesConverter(granted);
+    converter.setJwtGrantedAuthoritiesConverter(AdminApiJwtAuthorities::from);
     return converter;
   }
 }

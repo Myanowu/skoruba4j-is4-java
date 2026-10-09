@@ -6,6 +6,7 @@ import com.myano.skoruba4j.console.jdbc.JdbcClientChoices;
 import com.myano.skoruba4j.console.jdbc.JdbcUrlComposer;
 import com.myano.skoruba4j.domain.DbProvider;
 import com.myano.skoruba4j.domain.jdbc.SqlitePaths;
+import com.myano.skoruba4j.i18n.Messages;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
@@ -54,11 +55,11 @@ final class ConnectionEditorDialog extends JDialog {
   private final JTextField sqliteFile = new JTextField();
   private final JTextField extra = new JTextField();
   private final JTextArea urlPreview = new JTextArea(3, 40);
-  private final JCheckBox editUrl = new JCheckBox("Edit JDBC URL manually (advanced)");
+  private final JCheckBox editUrl = new JCheckBox();
   private final CompactCards connectionCards = new CompactCards();
   private final JTextField username = new JTextField();
   private final JPasswordField password = new JPasswordField();
-  private final JCheckBox showPassword = new JCheckBox("Show DB password");
+  private final JCheckBox showPassword = new JCheckBox();
   private final JTextField tableStyle = new JTextField();
   private final JLabel testStatus = new JLabel(" ");
   private final char hiddenEcho;
@@ -92,11 +93,11 @@ final class ConnectionEditorDialog extends JDialog {
       Frame owner, Path repoRoot, JdbcConnectionStore.Store store) {
     JdbcConnectionStore.Connection seed = new JdbcConnectionStore.Connection();
     seed.id = JdbcConnectionStore.newId();
-    seed.name = JdbcConnectionStore.uniqueName(store, "New connection");
+    seed.name = JdbcConnectionStore.uniqueName(store, Messages.t("control.conn.defaultName"));
     seed.provider = "sqlite";
     seed.url = LocalConfigFile.EMBEDDED_JDBC_URL;
     seed.tableStyle = LocalConfigFile.DEFAULT_TABLE_STYLE;
-    return open(owner, repoRoot, store, seed, "New database connection");
+    return open(owner, repoRoot, store, seed, Messages.t("control.conn.title.new"));
   }
 
   static JdbcConnectionStore.Connection duplicate(
@@ -109,8 +110,10 @@ final class ConnectionEditorDialog extends JDialog {
     }
     JdbcConnectionStore.Connection seed = source.copy();
     seed.id = JdbcConnectionStore.newId();
-    seed.name = JdbcConnectionStore.uniqueName(store, source.name + " copy");
-    return open(owner, repoRoot, store, seed, "Duplicate database connection");
+    seed.name =
+        JdbcConnectionStore.uniqueName(
+            store, source.name + Messages.t("control.conn.copySuffix"));
+    return open(owner, repoRoot, store, seed, Messages.t("control.conn.title.dup"));
   }
 
   static JdbcConnectionStore.Connection edit(
@@ -121,7 +124,7 @@ final class ConnectionEditorDialog extends JDialog {
     if (existing == null) {
       return null;
     }
-    return open(owner, repoRoot, store, existing.copy(), "Edit database connection");
+    return open(owner, repoRoot, store, existing.copy(), Messages.t("control.conn.title.edit"));
   }
 
   private static JdbcConnectionStore.Connection open(
@@ -142,16 +145,16 @@ final class ConnectionEditorDialog extends JDialog {
     form.setBorder(new EmptyBorder(12, 16, 8, 16));
     GridBagConstraints gc = ConsoleLook.formGc();
 
-    ConsoleLook.addSection(form, gc, "Connection");
-    ConsoleLook.addRow(form, gc, "Name", connectionName);
-    ConsoleLook.addRow(form, gc, "DB type", provider);
+    ConsoleLook.addSection(form, gc, Messages.t("control.conn.section.connection"));
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.name"), connectionName);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.dbType"), provider);
     provider.setEditable(false);
     provider.addActionListener(e -> onProviderChanged());
     driverLabel.setFont(ConsoleLook.uiSmall());
     driverLabel.setForeground(ConsoleLook.MUTED);
-    ConsoleLook.addRow(form, gc, "Driver", driverLabel);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.driver"), driverLabel);
 
-    ConsoleLook.addSection(form, gc, "Location");
+    ConsoleLook.addSection(form, gc, Messages.t("control.conn.section.location"));
     connectionCards.setOpaque(false);
     connectionCards.add(sqlitePanel(), "sqlite");
     connectionCards.add(serverPanel(), "server");
@@ -163,18 +166,19 @@ final class ConnectionEditorDialog extends JDialog {
     form.add(connectionCards, gc);
     gc.gridwidth = 1;
 
-    ConsoleLook.addSection(form, gc, "Credentials");
-    ConsoleLook.addRow(form, gc, "Username", username);
-    ConsoleLook.addRow(form, gc, "Password", password);
+    ConsoleLook.addSection(form, gc, Messages.t("control.conn.section.credentials"));
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.username"), username);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.password"), password);
     gc.gridy++;
     gc.gridx = 1;
+    showPassword.setText(Messages.t("control.conn.showPassword"));
     showPassword.setFont(ConsoleLook.uiSmall());
     showPassword.addActionListener(
         e -> password.setEchoChar(showPassword.isSelected() ? 0 : hiddenEcho));
     form.add(showPassword, gc);
-    ConsoleLook.addRow(form, gc, "Table style", tableStyle);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.tableStyle"), tableStyle);
 
-    ConsoleLook.addSection(form, gc, "JDBC URL");
+    ConsoleLook.addSection(form, gc, Messages.t("control.conn.section.jdbc"));
     urlPreview.setRows(2);
     urlPreview.setLineWrap(true);
     urlPreview.setWrapStyleWord(true);
@@ -189,9 +193,10 @@ final class ConnectionEditorDialog extends JDialog {
     JScrollPane urlScroll = new JScrollPane(urlPreview);
     urlScroll.setBorder(null);
     urlScroll.setPreferredSize(new Dimension(10, 48));
-    ConsoleLook.addRow(form, gc, "Preview", urlScroll);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.preview"), urlScroll);
     gc.gridy++;
     gc.gridx = 1;
+    editUrl.setText(Messages.t("control.conn.editUrl"));
     editUrl.setFont(ConsoleLook.uiSmall());
     editUrl.addActionListener(e -> toggleUrlEdit());
     form.add(editUrl, gc);
@@ -217,15 +222,17 @@ final class ConnectionEditorDialog extends JDialog {
     JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
     bar.setOpaque(false);
     bar.setBorder(new EmptyBorder(8, 16, 12, 16));
-    JButton test = ConsoleLook.outlineButton("Test connection", ConsoleLook.WINE, ConsoleLook.WINE);
+    JButton test =
+        ConsoleLook.outlineButton(Messages.t("control.conn.test"), ConsoleLook.WINE, ConsoleLook.WINE);
     test.addActionListener(e -> testConnection());
-    JButton cancel = ConsoleLook.outlineButton("Cancel", ConsoleLook.LINE, ConsoleLook.INK);
+    JButton cancel =
+        ConsoleLook.outlineButton(Messages.t("control.conn.cancel"), ConsoleLook.LINE, ConsoleLook.INK);
     cancel.addActionListener(
         e -> {
           result = null;
           dispose();
         });
-    JButton ok = ConsoleLook.primary("Save");
+    JButton ok = ConsoleLook.primary(Messages.t("control.conn.save"));
     ok.addActionListener(e -> accept());
     bar.add(test);
     bar.add(cancel);
@@ -241,7 +248,7 @@ final class ConnectionEditorDialog extends JDialog {
     gc.gridx = 0;
     gc.weightx = 0;
     gc.fill = GridBagConstraints.NONE;
-    form.add(ConsoleLook.fieldLabel("DB file"), gc);
+    form.add(ConsoleLook.fieldLabel(Messages.t("control.conn.sqliteFile")), gc);
     gc.gridx = 1;
     gc.weightx = 1;
     gc.fill = GridBagConstraints.HORIZONTAL;
@@ -250,17 +257,17 @@ final class ConnectionEditorDialog extends JDialog {
     row.add(sqliteFile, BorderLayout.CENTER);
     JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
     buttons.setOpaque(false);
-    JButton browse = ConsoleLook.primary("Browse…");
-    browse.setToolTipText("Open an existing file, or Create empty… inside the file dialog.");
+    JButton browse = ConsoleLook.primary(Messages.t("control.conn.browseSqlite"));
     browse.addActionListener(e -> browseSqliteFile());
-    JButton install = ConsoleLook.outlineButton("Default file", ConsoleLook.WINE, ConsoleLook.WINE);
-    install.setToolTipText("First-install SQLite file: " + JdbcUrlComposer.portableSqliteFile());
+    JButton install =
+        ConsoleLook.outlineButton(Messages.t("control.conn.defaultFile"), ConsoleLook.WINE, ConsoleLook.WINE);
+    install.setToolTipText(JdbcUrlComposer.portableSqliteFile());
     install.addActionListener(e -> useDefaultSqlite());
     buttons.add(browse);
     buttons.add(install);
     row.add(buttons, BorderLayout.EAST);
     form.add(row, gc);
-    ConsoleLook.addRow(form, gc, "Extra (query)", extra);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.extra"), extra);
     return form;
   }
 
@@ -268,10 +275,10 @@ final class ConnectionEditorDialog extends JDialog {
     JPanel form = ConsoleLook.form();
     form.setBorder(new EmptyBorder(0, 0, 0, 0));
     GridBagConstraints gc = ConsoleLook.formGc();
-    ConsoleLook.addRow(form, gc, "Host / IP", host);
-    ConsoleLook.addRow(form, gc, "Port", port);
-    ConsoleLook.addRow(form, gc, "Database name", databaseName);
-    ConsoleLook.addRow(form, gc, "Extra properties", extra);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.host"), host);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.port"), port);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.database"), databaseName);
+    ConsoleLook.addRow(form, gc, Messages.t("control.conn.extra"), extra);
     return form;
   }
 
@@ -326,11 +333,11 @@ final class ConnectionEditorDialog extends JDialog {
   private void accept() {
     String name = connectionName.getText() == null ? "" : connectionName.getText().trim();
     if (name.isBlank()) {
-      JOptionPane.showMessageDialog(this, "Connection name is required.");
+      JOptionPane.showMessageDialog(this, Messages.t("control.conn.nameRequired"));
       return;
     }
     if (JdbcConnectionStore.nameTaken(store, name, exceptId)) {
-      JOptionPane.showMessageDialog(this, "Connection name already exists.");
+      JOptionPane.showMessageDialog(this, Messages.t("control.conn.nameTaken"));
       return;
     }
     LocalConfigFile.Form form = editorForm();
@@ -368,7 +375,7 @@ final class ConnectionEditorDialog extends JDialog {
   private void testConnection() {
     LocalConfigFile.Form snapshot = editorForm();
     testStatus.setForeground(ConsoleLook.MUTED);
-    testStatus.setText("Testing…");
+    testStatus.setText(Messages.t("control.conn.testing"));
     new SwingWorker<String, Void>() {
       @Override
       protected String doInBackground() throws Exception {
@@ -381,7 +388,9 @@ final class ConnectionEditorDialog extends JDialog {
             ResultSet rs = st.executeQuery("SELECT 1")) {
           rs.next();
         }
-        return "OK — connected with " + DbProvider.fromConfig(snapshot.provider).driverClassName();
+        return Messages.t("control.conn.testOk")
+            + " "
+            + DbProvider.fromConfig(snapshot.provider).driverClassName();
       }
 
       @Override
@@ -392,11 +401,11 @@ final class ConnectionEditorDialog extends JDialog {
         } catch (Exception e) {
           String detail = formatJdbcError(e);
           testStatus.setForeground(ConsoleLook.DOWN);
-          testStatus.setText("Failed — " + detail);
+          testStatus.setText(Messages.t("control.conn.testFail", detail));
           JOptionPane.showMessageDialog(
               ConnectionEditorDialog.this,
               detail,
-              "Test connection",
+              Messages.t("control.conn.test"),
               JOptionPane.ERROR_MESSAGE);
         }
       }

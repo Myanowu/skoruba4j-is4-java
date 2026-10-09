@@ -301,6 +301,11 @@ public final class UserRepository {
   }
 
   public void addRole(String userId, String roleId) {
+    for (IdentityRole existing : listRoles(userId)) {
+      if (existing.id().equals(roleId)) {
+        return;
+      }
+    }
     String sql =
         "INSERT INTO "
             + dialect.quote(tables.userRoles())

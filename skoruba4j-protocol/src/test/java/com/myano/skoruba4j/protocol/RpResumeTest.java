@@ -26,9 +26,9 @@ class RpResumeTest {
             .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
             .redirectUri("https://localhost:6061/signin-oidc")
             .build();
-    assertEquals("https://localhost:6061/", RpResume.target(client));
+    assertEquals("https://localhost:6061/login", RpResume.target(client));
     assertEquals(
-        "https://localhost:6061/",
+        "https://localhost:6061/login",
         RpResume.targetForClientIds(
             new InMemoryRegisteredClientRepository(client), "missing", "MyClientId"));
     assertNull(RpResume.targetForClientIds(null, "MyClientId"));

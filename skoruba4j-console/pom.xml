@@ -154,8 +154,9 @@
                       tofile="${skoruba4j.dist.dir}/config/idserver-local.yml"
                       overwrite="false"
                       failonerror="false"/>
-                <delete file="${skoruba4j.dist.dir}/config/application-local.yml" failonerror="false"/>
-                <delete file="${skoruba4j.dist.dir}/config/application-elcss.yml" failonerror="false"/>
+                <delete quiet="true" failonerror="false">
+                  <fileset dir="${skoruba4j.dist.dir}/config" includes="application-*.yml" erroronmissingdir="false"/>
+                </delete>
                 <copy file="${maven.multiModuleProjectDirectory}/skoruba4j-sts/application-local.yml"
                       tofile="${skoruba4j.dist.dir}/tomcat/skoruba4j-sts/application-local.yml"
                       overwrite="true"

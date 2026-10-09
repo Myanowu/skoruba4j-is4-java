@@ -23,4 +23,4 @@
 - 密码 ASP.NET Identity PBKDF2
 - 表名可 `skoruba`（`Users`）或 `aspnet`（`AspNetUsers`）
 
-协议（已带测试）：OpenID Connect 1.0（Discovery、JWKS、Authorization Code + PKCE、ID Token、UserInfo、RP 登出）与 OAuth 2.0（`authorization_code`、`refresh_token`）。未完整：introspection、revocation、client credentials、device code、resource owner password、IS4 `delegation`。不做：implicit、mTLS。详见 [ABOUT.md](ABOUT.md)。
+协议（已带测试）：OpenID Connect 1.0（Discovery、JWKS、Authorization Code + PKCE、ID Token、UserInfo、RP 登出、introspection）与 OAuth 2.0（`authorization_code`、`refresh_token`、revocation、`client_credentials`、resource owner password）。未完整：device code、IS4 `delegation`。不做：implicit、mTLS。详见 [ABOUT.md](ABOUT.md) / [COMPATIBILITY.md](../COMPATIBILITY.md)。

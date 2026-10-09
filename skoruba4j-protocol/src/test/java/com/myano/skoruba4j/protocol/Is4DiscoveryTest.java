@@ -24,5 +24,9 @@ class Is4DiscoveryTest {
     OidcProviderConfiguration config = builder.build();
     assertEquals(Boolean.TRUE, config.getClaim("frontchannel_logout_supported"));
     assertEquals(Boolean.TRUE, config.getClaim("frontchannel_logout_session_supported"));
+    assertEquals(Boolean.FALSE, config.getClaim("tls_client_certificate_bound_access_tokens"));
+    long openid =
+        config.getScopes().stream().filter("openid"::equals).count();
+    assertEquals(1, openid);
   }
 }

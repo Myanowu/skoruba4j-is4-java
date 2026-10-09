@@ -99,6 +99,18 @@ class LocalConfigFileTest {
   }
 
   @Test
+  void issuerUriPrefersLocalhostOverLoopbackIp() {
+    assertEquals(
+        "https://localhost:5051",
+        LocalConfigFile.canonicalizeIssuerUri("https://127.0.0.1:5051/"));
+    LocalConfigFile.Form form =
+        LocalConfigFile.load("issuer-uri: 'https://127.0.0.1:5051'\n", "");
+    assertEquals("https://localhost:5051", form.issuerUri);
+    String yaml = LocalConfigFile.write(form, "");
+    assertEquals("https://localhost:5051", LocalConfigFile.yamlValue(yaml, "issuer-uri"));
+  }
+
+  @Test
   void loginModePrefersExplicitKeyAndMapsLegacyOidc() {
     LocalConfigFile.Form blank =
         LocalConfigFile.load("issuer-uri: 'https://localhost:5051'\n", "");
@@ -148,7 +160,7 @@ class LocalConfigFileTest {
   }
 
   @Test
-  void overlayWinsOverElcssForJdbc() {
+  void overlayWinsOverPrivateProfileForJdbc() {
     String overlay = "url: 'jdbc:overlay'\nusername: 'local-user'\n";
     String privateYaml = "url: 'jdbc:private'\nusername: 'private-user'\npassword: 'private-secret'\n";
     assertEquals("jdbc:overlay", LocalConfigFile.firstYamlValue("url", overlay, privateYaml));
@@ -172,6 +184,35 @@ class LocalConfigFileTest {
     LocalConfigFile.Form form = baseForm();
     form.endSession = "STRICT";
     assertEquals("strict", LocalConfigFile.yamlValue(LocalConfigFile.write(form, ""), "end-session"));
+  }
+
+  @Test
+  void accountChooserDefaultsOnAndWritesUnderLogin() {
+    LocalConfigFile.Form form = baseForm();
+    assertTrue(form.accountChooserEnabled);
+    form.accountChooserEnabled = false;
+    String yaml = LocalConfigFile.write(form, "");
+    assertTrue(yaml.contains("login:"));
+    assertEquals("false", LocalConfigFile.yamlValue(yaml, "account-chooser"));
+    LocalConfigFile.Form loaded = LocalConfigFile.load(yaml, "");
+    assertFalse(loaded.accountChooserEnabled);
+    assertTrue(LocalConfigFile.load("", "").accountChooserEnabled);
+  }
+
+  @Test
+  void debugLoginWritesUnderLoginAndKeepsPasswordWhenBlank() {
+    LocalConfigFile.Form form = baseForm();
+    form.debugMode = true;
+    form.debugPassword = "temp-debug";
+    String yaml = LocalConfigFile.write(form, "");
+    assertEquals("true", LocalConfigFile.nestedYamlValue(yaml, "login", "debug-mode"));
+    assertEquals("temp-debug", LocalConfigFile.nestedYamlValue(yaml, "login", "debug-password"));
+    LocalConfigFile.Form again = LocalConfigFile.load(yaml, "");
+    again.debugPassword = "";
+    String kept = LocalConfigFile.write(again, yaml);
+    assertEquals("temp-debug", LocalConfigFile.nestedYamlValue(kept, "login", "debug-password"));
+    assertTrue(LocalConfigFile.load(kept, "").debugMode);
+    assertFalse(LocalConfigFile.load("", "").debugMode);
   }
 
   @Test

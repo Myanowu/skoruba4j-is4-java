@@ -75,21 +75,22 @@ final class SettingsPanel extends JPanel {
   private final JLabel languageNote = new JLabel();
   private final JButton languageApply = ConsoleLook.primary(Messages.t("control.lang.apply"));
   private final JLabel dbStatus = new JLabel(" ");
+  private JLabel languageSection;
   private JButton neuButton;
   private JButton editButton;
   private JButton dupButton;
   private JButton delButton;
   private JButton activateButton;
+  private JButton loadCatalogButton;
+  private final List<Runnable> localeRefresh = new ArrayList<>();
   private final JTextField issuerUri = new JTextField();
   private final JComboBox<String> endSession = new JComboBox<>(LocalConfigFile.END_SESSION_MODES);
-  /** Maps to idserver.admin.login-mode (and oidc-enabled for sts-oidc only). */
-  private final JComboBox<String> adminSignIn =
-      new JComboBox<>(
-          new String[] {
-            "Local password",
-            "STS password (Admin page, no redirect)",
-            "STS OIDC redirect (SSO)"
-          });
+  private final JComboBox<String> accountChooser = new JComboBox<>();
+  private final JComboBox<String> debugMode = new JComboBox<>();
+  private final JPasswordField debugPassword = new JPasswordField();
+  private final JCheckBox showDebugPassword = new JCheckBox();
+  /** Maps to idserver.admin.login-mode (and oidc-enabled for sts-oidc only). Index order fixed. */
+  private final JComboBox<String> adminSignIn = new JComboBox<>();
   private final JComboBox<JdbcClientChoices.Item> clientId = new JComboBox<>();
   private final JPasswordField clientSecret = new JPasswordField();
   private final JLabel clientIdStatus = new JLabel(" ");
@@ -102,26 +103,20 @@ final class SettingsPanel extends JPanel {
   private final JTextField trustStore = new JTextField();
   private final JPasswordField trustStorePassword = new JPasswordField();
   private final JComboBox<String> trustStoreType = new JComboBox<>(LocalConfigFile.STORE_TYPES);
-  private final JCheckBox showTlsPassword = new JCheckBox("Show certificate passwords");
+  private final JCheckBox showTlsPassword = new JCheckBox();
   private final JTextField smtpHost = new JTextField();
   private final JTextField smtpPort = new JTextField();
   private final JTextField smtpUsername = new JTextField();
   private final JPasswordField smtpPassword = new JPasswordField();
   private final JTextField smtpFrom = new JTextField();
-  private final JCheckBox smtpStartTls = new JCheckBox("SMTP STARTTLS");
+  private final JCheckBox smtpStartTls = new JCheckBox();
   private final JPasswordField smtpResetKey = new JPasswordField();
-  private final JCheckBox showSmtpPassword = new JCheckBox("Show SMTP password / reset-key");
+  private final JCheckBox showSmtpPassword = new JCheckBox();
   private final ProcessFields stsFields = new ProcessFields();
   private final ProcessFields adminFields = new ProcessFields();
   private final ProcessFields apiFields = new ProcessFields();
-  private final JComboBox<String> adminApiUi = new JComboBox<>(new String[] {"Yes", "No"});
-  private final JComboBox<String> adminApiLoginMode =
-      new JComboBox<>(
-          new String[] {
-            "Both (local + STS OIDC)",
-            "Local password only",
-            "STS OIDC only (Google / Microsoft / WhatsApp / WeChat)"
-          });
+  private final JComboBox<String> adminApiUi = new JComboBox<>();
+  private final JComboBox<String> adminApiLoginMode = new JComboBox<>();
   private final JTextField adminApiClientId = new JTextField();
   private final JPasswordField adminApiClientSecret = new JPasswordField();
   private final JTextField googleClientId = new JTextField();
@@ -134,7 +129,7 @@ final class SettingsPanel extends JPanel {
   private final JPasswordField whatsappAppSecret = new JPasswordField();
   private final JTextField wechatAppId = new JTextField();
   private final JPasswordField wechatAppSecret = new JPasswordField();
-  private final JCheckBox showExternalSecrets = new JCheckBox("Show IdP secrets");
+  private final JCheckBox showExternalSecrets = new JCheckBox();
   private final char hiddenEcho;
 
   SettingsPanel(Path repoRoot, Consumer<UiLocale> onLocale) {
@@ -146,6 +141,7 @@ final class SettingsPanel extends JPanel {
     this.hiddenEcho = keyStorePassword.getEchoChar();
     setBorder(new EmptyBorder(12, 16, 8, 16));
     setBackground(ConsoleLook.PAPER);
+    refreshLocalizedCombos();
     tabs.addTab(Messages.t("control.tab.database"), scroll(databasePanel()));
     tabs.addTab(Messages.t("control.tab.tls"), scroll(tlsPanel()));
     tabs.addTab(Messages.t("control.tab.sts"), scroll(stsPanel()));
@@ -155,8 +151,7 @@ final class SettingsPanel extends JPanel {
     tabs.addTab(Messages.t("control.tab.language"), scroll(languagePanel()));
     ConsoleLook.styleTabbedPane(tabs);
     add(tabs, BorderLayout.CENTER);
-    saveButton.setToolTipText(
-        "Saves TLS / STS / Admin / Admin API. Database profiles use New / Edit / Set as current.");
+    saveButton.setToolTipText(Messages.t("control.save.tooltip"));
     saveButton.addActionListener(e -> save());
     JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
     south.setOpaque(false);
@@ -166,7 +161,7 @@ final class SettingsPanel extends JPanel {
     reload();
   }
 
-  /** Refresh Settings chrome after the Control language changes. */
+  /** Refresh Settings chrome and form labels after the Control language changes. */
   void applyLocale() {
     tabs.setTitleAt(0, Messages.t("control.tab.database"));
     tabs.setTitleAt(1, Messages.t("control.tab.tls"));
@@ -176,6 +171,7 @@ final class SettingsPanel extends JPanel {
     tabs.setTitleAt(5, Messages.t("control.tab.adminApi"));
     tabs.setTitleAt(6, Messages.t("control.tab.language"));
     saveButton.setText(Messages.t("control.save"));
+    saveButton.setToolTipText(Messages.t("control.save.tooltip"));
     connectionsModel.setColumnIdentifiers(
         new Object[] {
           Messages.t("control.db.col.name"),
@@ -185,6 +181,8 @@ final class SettingsPanel extends JPanel {
           Messages.t("control.db.col.status"),
           ""
         });
+    // setColumnIdentifiers rebuilds TableColumnModel and drops custom editors.
+    installManageColumn();
     if (neuButton != null) {
       neuButton.setText(Messages.t("control.db.new"));
       editButton.setText(Messages.t("control.db.edit"));
@@ -193,10 +191,14 @@ final class SettingsPanel extends JPanel {
       activateButton.setText(Messages.t("control.db.setCurrent"));
     }
     languageApply.setText(Messages.t("control.lang.apply"));
-    languageNote.setText(
-        "<html><body style='width:620px;font-family:\"Microsoft JhengHei UI\",\"Microsoft YaHei UI\",SansSerif;font-size:11px;color:#6B5558'>"
-            + Messages.t("control.lang.note")
-            + "</body></html>");
+    if (languageSection != null) {
+      languageSection.setText(Messages.t("control.lang.title"));
+    }
+    languageNote.setText(ConsoleLook.noteHtml(Messages.t("control.lang.note")));
+    refreshLocalizedCombos();
+    for (Runnable refresh : localeRefresh) {
+      refresh.run();
+    }
     syncingLang = true;
     try {
       languageCombo.setSelectedItem(UiLocale.current());
@@ -207,17 +209,47 @@ final class SettingsPanel extends JPanel {
     refreshConnectionList(selectedId);
   }
 
+  /** Rebuilds choice / sign-in combo labels while preserving selected indexes. */
+  private void refreshLocalizedCombos() {
+    refillIndexedCombo(
+        accountChooser,
+        Messages.t("control.choice.yes"),
+        Messages.t("control.choice.no"));
+    refillIndexedCombo(
+        debugMode, Messages.t("control.choice.off"), Messages.t("control.choice.on"));
+    refillIndexedCombo(
+        adminApiUi, Messages.t("control.choice.yes"), Messages.t("control.choice.no"));
+    refillIndexedCombo(
+        adminSignIn,
+        Messages.t("control.admin.signIn.local"),
+        Messages.t("control.admin.signIn.stsPassword"),
+        Messages.t("control.admin.signIn.stsOidc"));
+    refillIndexedCombo(
+        adminApiLoginMode,
+        Messages.t("control.api.uiSignIn.both"),
+        Messages.t("control.api.uiSignIn.local"),
+        Messages.t("control.api.uiSignIn.stsOidc"));
+  }
+
+  private static void refillIndexedCombo(JComboBox<String> box, String... labels) {
+    int idx = box.getSelectedIndex();
+    box.removeAllItems();
+    for (String label : labels) {
+      box.addItem(label);
+    }
+    if (box.getItemCount() > 0) {
+      box.setSelectedIndex(Math.max(0, Math.min(idx < 0 ? 0 : idx, box.getItemCount() - 1)));
+    }
+  }
+
   private JPanel languagePanel() {
     JPanel form = newForm();
     GridBagConstraints gc = gc();
-    ConsoleLook.addSection(form, gc, Messages.t("control.lang.title"));
+    languageSection = ConsoleLook.addSection(form, gc, Messages.t("control.lang.title"));
     gc.gridy++;
     gc.gridx = 0;
     gc.gridwidth = 2;
-    languageNote.setText(
-        "<html><body style='width:620px;font-family:\"Microsoft JhengHei UI\",\"Microsoft YaHei UI\",SansSerif;font-size:11px;color:#6B5558'>"
-            + Messages.t("control.lang.note")
-            + "</body></html>");
+    languageNote.setText(ConsoleLook.noteHtml(Messages.t("control.lang.note")));
     languageNote.setFont(ConsoleLook.uiSmall());
     languageNote.setForeground(ConsoleLook.MUTED);
     form.add(languageNote, gc);
@@ -244,7 +276,7 @@ final class SettingsPanel extends JPanel {
             return this;
           }
         });
-    addRow(form, gc, Messages.t("lang.choose"), languageCombo);
+    i18nRow(form, gc, "lang.choose", languageCombo);
     gc.gridy++;
     gc.gridx = 1;
     languageApply.addActionListener(
@@ -279,8 +311,8 @@ final class SettingsPanel extends JPanel {
     JPanel form = newForm();
     GridBagConstraints gc = gc();
 
-    ConsoleLook.addSection(form, gc, Messages.t("control.db.connections"));
-    ConsoleLook.addNote(form, gc, Messages.t("control.db.note"));
+    i18nSection(form, gc, "control.db.connections");
+    i18nNote(form, gc, "control.db.note");
 
     connectionsTable.setFont(ConsoleLook.ui());
     connectionsTable.setRowHeight(34);
@@ -299,8 +331,7 @@ final class SettingsPanel extends JPanel {
     connectionsTable.getColumnModel().getColumn(4).setPreferredWidth(70);
     connectionsTable.getColumnModel().getColumn(5).setPreferredWidth(88);
     connectionsTable.getColumnModel().getColumn(5).setMaxWidth(100);
-    connectionsTable.getColumnModel().getColumn(5).setCellRenderer(new ManageButtonRenderer());
-    connectionsTable.getColumnModel().getColumn(5).setCellEditor(new ManageButtonEditor());
+    installManageColumn();
     connectionsTable
         .getSelectionModel()
         .addListSelectionListener(
@@ -387,18 +418,19 @@ final class SettingsPanel extends JPanel {
   private JPanel tlsPanel() {
     JPanel form = newForm();
     GridBagConstraints gc = gc();
-    addNote(form, gc, "HTTPS certificate used by any process whose protocol is HTTPS.");
-    addBrowseRow(form, gc, "HTTPS key store (p12/jks)", keyStore);
-    addRow(form, gc, "Key store password", keyStorePassword);
-    addRow(form, gc, "Key store type", keyStoreType);
+    i18nNote(form, gc, "control.tls.intro");
+    i18nBrowseRow(form, gc, "control.tls.keyStore", keyStore);
+    i18nRow(form, gc, "control.tls.keyStorePassword", keyStorePassword);
+    i18nRow(form, gc, "control.tls.keyStoreType", keyStoreType);
     keyStoreType.setEditable(false);
-    addRow(form, gc, "Key alias", keyAlias);
-    addBrowseRow(form, gc, "Admin outbound trust store (blank = Windows ROOT + HTTPS key store)", trustStore);
-    addRow(form, gc, "Trust store password", trustStorePassword);
-    addRow(form, gc, "Trust store type", trustStoreType);
+    i18nRow(form, gc, "control.tls.keyAlias", keyAlias);
+    i18nBrowseRow(form, gc, "control.tls.trustStore", trustStore);
+    i18nRow(form, gc, "control.tls.trustStorePassword", trustStorePassword);
+    i18nRow(form, gc, "control.tls.trustStoreType", trustStoreType);
     trustStoreType.setEditable(false);
     gc.gridy++;
     gc.gridx = 1;
+    i18nCheck(showTlsPassword, "control.tls.showPasswords");
     showTlsPassword.addActionListener(
         e -> {
           char echo = showTlsPassword.isSelected() ? 0 : hiddenEcho;
@@ -413,32 +445,38 @@ final class SettingsPanel extends JPanel {
   private JPanel stsPanel() {
     JPanel form = newForm();
     GridBagConstraints gc = gc();
-    addNote(
-        form,
-        gc,
-        "skoruba4j-sts: login and /connect/* tokens. Listen protocol and port should match Admin issuer-uri.");
+    i18nNote(form, gc, "control.sts.intro");
     addProcessRows(form, gc, stsFields);
+    accountChooser.setEditable(false);
+    i18nRow(form, gc, "control.sts.accountChooser", accountChooser);
+    i18nNote(form, gc, "control.sts.accountChooser.note");
+    debugMode.setEditable(false);
+    i18nRow(form, gc, "control.sts.debugLogin", debugMode);
+    i18nRow(form, gc, "control.sts.debugPassword", debugPassword);
+    gc.gridy++;
+    gc.gridx = 1;
+    i18nCheck(showDebugPassword, "control.sts.showDebugPassword");
+    showDebugPassword.addActionListener(
+        e -> debugPassword.setEchoChar(showDebugPassword.isSelected() ? 0 : hiddenEcho));
+    form.add(showDebugPassword, gc);
+    i18nNote(form, gc, "control.sts.debug.note");
     endSession.setEditable(false);
-    addRow(form, gc, "logout.end-session", endSession);
-    addNote(
-        form,
-        gc,
-        "compatible = IdentityServer4 refresh and lenient endsession. strict = expire JWT immediately, no refresh.");
-    addNote(
-        form,
-        gc,
-        "Forgot-password mail. Leave host blank to skip sending. Password and reset-key stay the previous value if you leave them empty on Save.");
-    addRow(form, gc, "SMTP host", smtpHost);
-    addRow(form, gc, "SMTP port", smtpPort);
-    addRow(form, gc, "SMTP username", smtpUsername);
-    addRow(form, gc, "SMTP password", smtpPassword);
-    addRow(form, gc, "From address", smtpFrom);
+    i18nRow(form, gc, "control.sts.endSession", endSession);
+    i18nNote(form, gc, "control.sts.endSession.note");
+    i18nNote(form, gc, "control.sts.smtp.intro");
+    i18nRow(form, gc, "control.sts.smtp.host", smtpHost);
+    i18nRow(form, gc, "control.sts.smtp.port", smtpPort);
+    i18nRow(form, gc, "control.sts.smtp.username", smtpUsername);
+    i18nRow(form, gc, "control.sts.smtp.password", smtpPassword);
+    i18nRow(form, gc, "control.sts.smtp.from", smtpFrom);
     gc.gridy++;
     gc.gridx = 1;
+    i18nCheck(smtpStartTls, "control.sts.smtp.startTls");
     form.add(smtpStartTls, gc);
-    addRow(form, gc, "Reset-token key", smtpResetKey);
+    i18nRow(form, gc, "control.sts.smtp.resetKey", smtpResetKey);
     gc.gridy++;
     gc.gridx = 1;
+    i18nCheck(showSmtpPassword, "control.sts.showSmtpSecrets");
     showSmtpPassword.addActionListener(
         e -> {
           char echo = showSmtpPassword.isSelected() ? 0 : hiddenEcho;
@@ -452,30 +490,18 @@ final class SettingsPanel extends JPanel {
   private JPanel adminPanel() {
     JPanel form = newForm();
     GridBagConstraints gc = gc();
-    addNote(
-        form,
-        gc,
-        "skoruba4j-admin: management UI. OIDC client_id and role come from the database.");
+    i18nNote(form, gc, "control.admin.intro");
     addProcessRows(form, gc, adminFields);
-    addRow(form, gc, "issuer-uri", issuerUri);
-    addNote(
-        form,
-        gc,
-        "OIDC Authority (token iss). Example https://localhost:5051 — must match the STS listen URL.");
+    i18nRow(form, gc, "control.admin.issuer", issuerUri);
+    i18nNote(form, gc, "control.admin.issuer.note");
     adminSignIn.setEditable(false);
-    addRow(form, gc, "Admin sign-in", adminSignIn);
-    addNote(
-        form,
-        gc,
-        "One mode only. Local = Users table. STS password = Admin form calls STS password grant (no browser redirect; not cross-app SSO). STS OIDC = browser SSO. Client must allow password grant for STS password. Restart Admin after Save.");
+    i18nRow(form, gc, "control.admin.signIn", adminSignIn);
+    i18nNote(form, gc, "control.admin.signIn.note");
     adminSignIn.addActionListener(e -> syncAdminSignInFields());
     clientId.setEditable(false);
     addClientIdRow(form, gc);
-    addRow(form, gc, "Admin client-secret", clientSecret);
-    addNote(
-        form,
-        gc,
-        "Plaintext secret for STS token calls (password grant or OIDC) when the Client requires a secret. Leave blank on Save to keep the previous value.");
+    i18nRow(form, gc, "control.admin.clientSecret", clientSecret);
+    i18nNote(form, gc, "control.admin.clientSecret.note");
     adminRole.setEditable(false);
     addAdminRoleRow(form, gc);
     return form;
@@ -484,61 +510,40 @@ final class SettingsPanel extends JPanel {
   private JPanel apiPanel() {
     JPanel form = newForm();
     GridBagConstraints gc = gc();
-    addNote(
-        form,
-        gc,
-        "skoruba4j-admin-api: REST over the same tables. JWT role must match Admin role.");
+    i18nNote(form, gc, "control.api.intro");
     addProcessRows(form, gc, apiFields);
     adminApiUi.setEditable(false);
-    addRow(form, gc, "Enable browser UI", adminApiUi);
-    addNote(
-        form,
-        gc,
-        "Yes (default): browser console at / and /ui/**. No: JWT /api/** and /health only — UI paths are denied. Restart Admin API after Save.");
+    i18nRow(form, gc, "control.api.enableUi", adminApiUi);
+    i18nNote(form, gc, "control.api.enableUi.note");
     adminApiLoginMode.setEditable(false);
-    addRow(form, gc, "UI sign-in", adminApiLoginMode);
-    addNote(
-        form,
-        gc,
-        "STS OIDC uses client skoruba4j-admin-api. WhatsApp / WeChat QR appear after External IdP is filled and STS restarted. Per-client flags: Admin → Clients.");
-    addRow(form, gc, "API OIDC client-id", adminApiClientId);
-    addRow(form, gc, "API OIDC client-secret", adminApiClientSecret);
-    addNote(
-        form,
-        gc,
-        "Leave secret blank for public PKCE client (recommended). Must match Clients.ClientId redirects to this Admin API host /signin-oidc.");
+    i18nRow(form, gc, "control.api.uiSignIn", adminApiLoginMode);
+    i18nNote(form, gc, "control.api.uiSignIn.note");
+    i18nRow(form, gc, "control.api.clientId", adminApiClientId);
+    i18nRow(form, gc, "control.api.clientSecret", adminApiClientSecret);
+    i18nNote(form, gc, "control.api.clientSecret.note");
     return form;
   }
 
   private JPanel externalPanel() {
     JPanel form = newForm();
     GridBagConstraints gc = gc();
-    addNote(
-        form,
-        gc,
-        "STS global IdP credentials (idserver.external-login). Leave a secret blank on Save to keep the previous value. Restart STS (and Admin API for login buttons) after Save. Per-client enable is in Admin → Clients.");
-    ConsoleLook.addSection(form, gc, "Google");
-    addRow(form, gc, "Client ID", googleClientId);
-    addRow(form, gc, "Client secret", googleClientSecret);
-    ConsoleLook.addSection(form, gc, "Microsoft");
-    addRow(form, gc, "Client ID", microsoftClientId);
-    addRow(form, gc, "Client secret", microsoftClientSecret);
-    addRow(form, gc, "Tenant ID", microsoftTenantId);
-    ConsoleLook.addSection(form, gc, "WhatsApp QR (Cloud API)");
-    addRow(form, gc, "Business phone (wa.me digits)", whatsappBusinessPhone);
-    addNote(
-        form,
-        gc,
-        "Required to show WhatsApp QR. Example 85291234567. Meta webhook: {issuer}/external/whatsapp/webhook");
-    addRow(form, gc, "Webhook verify token", whatsappWebhookVerifyToken);
-    addRow(form, gc, "App secret (optional)", whatsappAppSecret);
-    ConsoleLook.addSection(form, gc, "WeChat QR (Open Platform 网站应用)");
-    addRow(form, gc, "App ID", wechatAppId);
-    addRow(form, gc, "App secret", wechatAppSecret);
-    addNote(
-        form,
-        gc,
-        "Callback URL in WeChat console: {issuer}/external/wechat/callback");
+    i18nNote(form, gc, "control.ext.intro");
+    i18nSection(form, gc, "control.ext.google");
+    i18nRow(form, gc, "control.ext.clientId", googleClientId);
+    i18nRow(form, gc, "control.ext.clientSecret", googleClientSecret);
+    i18nSection(form, gc, "control.ext.microsoft");
+    i18nRow(form, gc, "control.ext.clientId", microsoftClientId);
+    i18nRow(form, gc, "control.ext.clientSecret", microsoftClientSecret);
+    i18nRow(form, gc, "control.ext.tenantId", microsoftTenantId);
+    i18nSection(form, gc, "control.ext.whatsapp");
+    i18nRow(form, gc, "control.ext.whatsappPhone", whatsappBusinessPhone);
+    i18nNote(form, gc, "control.ext.whatsappPhone.note");
+    i18nRow(form, gc, "control.ext.webhookToken", whatsappWebhookVerifyToken);
+    i18nRow(form, gc, "control.ext.appSecret", whatsappAppSecret);
+    i18nSection(form, gc, "control.ext.wechat");
+    i18nRow(form, gc, "control.ext.wechatAppId", wechatAppId);
+    i18nRow(form, gc, "control.ext.wechatAppSecret", wechatAppSecret);
+    i18nNote(form, gc, "control.ext.wechat.note");
     showExternalSecrets.setOpaque(false);
     showExternalSecrets.addActionListener(
         e -> {
@@ -549,7 +554,10 @@ final class SettingsPanel extends JPanel {
           whatsappAppSecret.setEchoChar(echo);
           wechatAppSecret.setEchoChar(echo);
         });
-    addRow(form, gc, "", showExternalSecrets);
+    i18nCheck(showExternalSecrets, "control.ext.showSecrets");
+    gc.gridy++;
+    gc.gridx = 1;
+    form.add(showExternalSecrets, gc);
     return form;
   }
 
@@ -560,8 +568,11 @@ final class SettingsPanel extends JPanel {
       LocalConfigFile.Form form = LocalConfigFile.load(overlay, privateYaml);
       loadConnectionStore();
       issuerUri.setText(form.issuerUri);
+      accountChooser.setSelectedIndex(form.accountChooserEnabled ? 0 : 1);
+      debugMode.setSelectedIndex(form.debugMode ? 1 : 0);
+      debugPassword.setText(form.debugPassword);
       endSession.setSelectedItem(LocalConfigFile.canonicalizeEndSession(form.endSession));
-      adminSignIn.setSelectedItem(labelForLoginMode(form.loginMode));
+      selectLoginMode(form.loginMode);
       clientSecret.setText(form.clientSecret);
       keyStore.setText(form.keyStore);
       keyStorePassword.setText(form.keyStorePassword);
@@ -573,8 +584,8 @@ final class SettingsPanel extends JPanel {
       fillProcess(stsFields, form.sts);
       fillProcess(adminFields, form.adminProc);
       fillProcess(apiFields, form.adminApi);
-      adminApiUi.setSelectedItem(form.adminApiUiEnabled ? "Yes" : "No");
-      adminApiLoginMode.setSelectedItem(labelForApiLoginMode(form.adminApiLoginMode));
+      adminApiUi.setSelectedIndex(form.adminApiUiEnabled ? 0 : 1);
+      selectApiLoginMode(form.adminApiLoginMode);
       adminApiClientId.setText(form.adminApiClientId);
       adminApiClientSecret.setText(form.adminApiClientSecret);
       smtpHost.setText(form.smtpHost);
@@ -602,7 +613,20 @@ final class SettingsPanel extends JPanel {
   }
 
   private String selectedLoginMode() {
-    return loginModeForLabel((String) adminSignIn.getSelectedItem());
+    return switch (adminSignIn.getSelectedIndex()) {
+      case 0 -> "local";
+      case 2 -> "sts-oidc";
+      default -> "sts-password";
+    };
+  }
+
+  private void selectLoginMode(String mode) {
+    adminSignIn.setSelectedIndex(
+        switch (LocalConfigFile.canonicalizeLoginMode(mode)) {
+          case "local" -> 0;
+          case "sts-oidc" -> 2;
+          default -> 1;
+        });
   }
 
   private boolean usesStsClient() {
@@ -610,40 +634,21 @@ final class SettingsPanel extends JPanel {
     return "sts-password".equals(mode) || "sts-oidc".equals(mode);
   }
 
-  private static String labelForLoginMode(String mode) {
-    return switch (LocalConfigFile.canonicalizeLoginMode(mode)) {
-      case "local" -> "Local password";
-      case "sts-oidc" -> "STS OIDC redirect (SSO)";
-      default -> "STS password (Admin page, no redirect)";
+  private String selectedApiLoginMode() {
+    return switch (adminApiLoginMode.getSelectedIndex()) {
+      case 1 -> "local";
+      case 2 -> "sts-oidc";
+      default -> "both";
     };
   }
 
-  private static String loginModeForLabel(String label) {
-    if ("Local password".equals(label)) {
-      return "local";
-    }
-    if ("STS OIDC redirect (SSO)".equals(label)) {
-      return "sts-oidc";
-    }
-    return "sts-password";
-  }
-
-  private static String labelForApiLoginMode(String mode) {
-    return switch (LocalConfigFile.canonicalizeApiLoginMode(mode)) {
-      case "local" -> "Local password only";
-      case "sts-oidc" -> "STS OIDC only (Google / Microsoft / WhatsApp / WeChat)";
-      default -> "Both (local + STS OIDC)";
-    };
-  }
-
-  private static String apiLoginModeForLabel(String label) {
-    if ("Local password only".equals(label)) {
-      return "local";
-    }
-    if (label != null && label.startsWith("STS OIDC only")) {
-      return "sts-oidc";
-    }
-    return "both";
+  private void selectApiLoginMode(String mode) {
+    adminApiLoginMode.setSelectedIndex(
+        switch (LocalConfigFile.canonicalizeApiLoginMode(mode)) {
+          case "local" -> 1;
+          case "sts-oidc" -> 2;
+          default -> 0;
+        });
   }
 
   private void syncAdminSignInFields() {
@@ -665,6 +670,9 @@ final class SettingsPanel extends JPanel {
       form.password = previousForm.password;
       form.tableStyle = previousForm.tableStyle;
       form.issuerUri = issuerUri.getText();
+      form.accountChooserEnabled = accountChooser.getSelectedIndex() != 1;
+      form.debugMode = debugMode.getSelectedIndex() == 1;
+      form.debugPassword = new String(debugPassword.getPassword());
       form.endSession = (String) endSession.getSelectedItem();
       form.loginMode = selectedLoginMode();
       form.oidcEnabled = "sts-oidc".equals(form.loginMode);
@@ -672,14 +680,14 @@ final class SettingsPanel extends JPanel {
       if (usesStsClient()
           && (selected == null || selected.clientId() == null || selected.clientId().isBlank())) {
         JOptionPane.showMessageDialog(
-            this, "Load Clients from the database and select Admin client-id.");
+            this, Messages.t("control.admin.selectClient"));
         return;
       }
       form.clientId = selected == null ? "" : selected.clientId();
       form.clientSecret = new String(clientSecret.getPassword());
       String role = (String) adminRole.getSelectedItem();
       if (usesStsClient() && (role == null || role.isBlank())) {
-        JOptionPane.showMessageDialog(this, "Load Roles from the database and select Admin role.");
+        JOptionPane.showMessageDialog(this, Messages.t("control.admin.selectRole"));
         return;
       }
       form.adminRole = role == null ? "" : role.trim();
@@ -694,8 +702,8 @@ final class SettingsPanel extends JPanel {
       form.sts = readProcess(stsFields);
       form.adminProc = readProcess(adminFields);
       form.adminApi = readProcess(apiFields);
-      form.adminApiUiEnabled = !"No".equals(adminApiUi.getSelectedItem());
-      form.adminApiLoginMode = apiLoginModeForLabel((String) adminApiLoginMode.getSelectedItem());
+      form.adminApiUiEnabled = adminApiUi.getSelectedIndex() != 1;
+      form.adminApiLoginMode = selectedApiLoginMode();
       form.adminApiClientId = adminApiClientId.getText();
       form.adminApiClientSecret = new String(adminApiClientSecret.getPassword());
       form.smtpHost = smtpHost.getText();
@@ -737,7 +745,8 @@ final class SettingsPanel extends JPanel {
       }
     } catch (Exception e) {
       connStore = new JdbcConnectionStore.Store();
-      JOptionPane.showMessageDialog(this, "Could not load connections: " + e.getMessage());
+      JOptionPane.showMessageDialog(
+          this, Messages.t("control.db.loadFailed", e.getMessage()));
     }
     String select = connStore.activeId;
     if (select == null || select.isBlank()) {
@@ -812,7 +821,7 @@ final class SettingsPanel extends JPanel {
   private void editConnection() {
     JdbcConnectionStore.Connection existing = connStore.find(selectedId);
     if (existing == null) {
-      JOptionPane.showMessageDialog(this, "Select a connection first.");
+      JOptionPane.showMessageDialog(this, Messages.t("control.db.selectFirst"));
       return;
     }
     JdbcConnectionStore.Connection edited =
@@ -826,7 +835,7 @@ final class SettingsPanel extends JPanel {
   private void duplicateConnection() {
     JdbcConnectionStore.Connection src = connStore.find(selectedId);
     if (src == null) {
-      JOptionPane.showMessageDialog(this, "Select a connection first.");
+      JOptionPane.showMessageDialog(this, Messages.t("control.db.selectFirst"));
       return;
     }
     JdbcConnectionStore.Connection created =
@@ -853,7 +862,7 @@ final class SettingsPanel extends JPanel {
       JdbcConnectionStore.save(connectionsFile, connStore);
       refreshConnectionList(c.id);
       dbStatus.setForeground(ConsoleLook.UP);
-      dbStatus.setText("Connection saved.");
+      dbStatus.setText(Messages.t("control.db.saved"));
     } catch (Exception e) {
       JOptionPane.showMessageDialog(this, e.getMessage());
     }
@@ -861,7 +870,7 @@ final class SettingsPanel extends JPanel {
 
   private void deleteConnection() {
     if (connStore.connections.size() <= 1) {
-      JOptionPane.showMessageDialog(this, "Keep at least one database connection.");
+      JOptionPane.showMessageDialog(this, Messages.t("control.db.keepOne"));
       return;
     }
     JdbcConnectionStore.Connection c = connStore.find(selectedId);
@@ -871,8 +880,8 @@ final class SettingsPanel extends JPanel {
     int choice =
         JOptionPane.showConfirmDialog(
             this,
-            "Delete connection \"" + c.name + "\"?",
-            "Delete",
+            Messages.t("control.db.deleteConfirm", c.name),
+            Messages.t("control.db.deleteTitle"),
             JOptionPane.YES_NO_OPTION,
             JOptionPane.WARNING_MESSAGE);
     if (choice != JOptionPane.YES_OPTION) {
@@ -888,7 +897,7 @@ final class SettingsPanel extends JPanel {
       }
       refreshConnectionList(connStore.activeId);
       dbStatus.setForeground(ConsoleLook.MUTED);
-      dbStatus.setText("Connection deleted.");
+      dbStatus.setText(Messages.t("control.db.deleted"));
     } catch (Exception e) {
       JOptionPane.showMessageDialog(this, e.getMessage());
     }
@@ -897,7 +906,7 @@ final class SettingsPanel extends JPanel {
   private void setAsCurrent() {
     JdbcConnectionStore.Connection c = connStore.find(selectedId);
     if (c == null) {
-      JOptionPane.showMessageDialog(this, "Select a connection first.");
+      JOptionPane.showMessageDialog(this, Messages.t("control.db.selectFirst"));
       return;
     }
     connStore.activeId = c.id;
@@ -907,11 +916,11 @@ final class SettingsPanel extends JPanel {
       refreshConnectionList(c.id);
       loadCatalogFromDb(currentClientId(), currentAdminRole());
       dbStatus.setForeground(ConsoleLook.UP);
-      dbStatus.setText("Set as current identity store. Restart STS / Admin / Admin API.");
+      dbStatus.setText(Messages.t("control.db.setCurrentDone"));
       JOptionPane.showMessageDialog(
           this,
-          "Current identity store updated.\nRestart STS, Admin, and Admin API for the change to apply.",
-          "Set as current",
+          Messages.t("control.db.setCurrentMsg").replace("\\n", "\n"),
+          Messages.t("control.db.setCurrentTitle"),
           JOptionPane.INFORMATION_MESSAGE);
     } catch (Exception e) {
       JOptionPane.showMessageDialog(this, e.getMessage());
@@ -953,7 +962,7 @@ final class SettingsPanel extends JPanel {
 
   private void openAdminDbFor(JdbcConnectionStore.Connection connection) {
     if (connection == null) {
-      JOptionPane.showMessageDialog(this, "Select a connection first.");
+      JOptionPane.showMessageDialog(this, Messages.t("control.db.selectFirst"));
       return;
     }
     Frame owner = ownerFrame();
@@ -969,6 +978,21 @@ final class SettingsPanel extends JPanel {
           return form;
         });
     loadCatalogFromDb(currentClientId(), currentAdminRole());
+  }
+
+  /**
+   * Binds the Manage action column. Must run again after {@link
+   * DefaultTableModel#setColumnIdentifiers} (locale refresh) recreates columns.
+   */
+  private void installManageColumn() {
+    if (connectionsTable.getColumnCount() < 6) {
+      return;
+    }
+    var column = connectionsTable.getColumnModel().getColumn(5);
+    column.setPreferredWidth(88);
+    column.setMaxWidth(100);
+    column.setCellRenderer(new ManageButtonRenderer());
+    column.setCellEditor(new ManageButtonEditor());
   }
 
   private final class ManageButtonRenderer extends JButton implements TableCellRenderer {
@@ -1041,22 +1065,28 @@ final class SettingsPanel extends JPanel {
     }
   }
 
-  private void addBrowseRow(JPanel form, GridBagConstraints gc, String label, JTextField field) {
+  private void i18nBrowseRow(JPanel form, GridBagConstraints gc, String key, JTextField field) {
     gc.gridy++;
     gc.gridx = 0;
     gc.weightx = 0;
     gc.fill = GridBagConstraints.NONE;
-    form.add(ConsoleLook.fieldLabel(label), gc);
+    JLabel left = ConsoleLook.fieldLabel(Messages.t(key));
+    form.add(left, gc);
     gc.gridx = 1;
     gc.weightx = 1;
     gc.fill = GridBagConstraints.HORIZONTAL;
     JPanel row = new JPanel(new BorderLayout(8, 0));
     row.setOpaque(false);
     row.add(field, BorderLayout.CENTER);
-    JButton browse = ConsoleLook.primary("Browse…");
+    JButton browse = ConsoleLook.primary(Messages.t("control.browse"));
     browse.addActionListener(e -> browseStore(field));
     row.add(browse, BorderLayout.EAST);
     form.add(row, gc);
+    localeRefresh.add(
+        () -> {
+          left.setText(Messages.t(key));
+          browse.setText(Messages.t("control.browse"));
+        });
   }
 
   private void browseStore(JTextField field) {
@@ -1081,22 +1111,30 @@ final class SettingsPanel extends JPanel {
     gc.gridx = 0;
     gc.weightx = 0;
     gc.fill = GridBagConstraints.NONE;
-    form.add(ConsoleLook.fieldLabel("Admin client-id"), gc);
+    JLabel left = ConsoleLook.fieldLabel(Messages.t("control.admin.clientId"));
+    form.add(left, gc);
     gc.gridx = 1;
     gc.weightx = 1;
     gc.fill = GridBagConstraints.HORIZONTAL;
     JPanel row = new JPanel(new BorderLayout(8, 0));
     row.setOpaque(false);
     row.add(clientId, BorderLayout.CENTER);
-    JButton load = ConsoleLook.primary("Load from database");
-    load.addActionListener(e -> loadCatalogFromDb(currentClientId(), currentAdminRole()));
-    row.add(load, BorderLayout.EAST);
+    loadCatalogButton = ConsoleLook.primary(Messages.t("control.admin.loadCatalog"));
+    loadCatalogButton.addActionListener(e -> loadCatalogFromDb(currentClientId(), currentAdminRole()));
+    row.add(loadCatalogButton, BorderLayout.EAST);
     form.add(row, gc);
     gc.gridy++;
     gc.gridx = 1;
     clientIdStatus.setFont(ConsoleLook.uiSmall());
     clientIdStatus.setForeground(ConsoleLook.MUTED);
     form.add(clientIdStatus, gc);
+    localeRefresh.add(
+        () -> {
+          left.setText(Messages.t("control.admin.clientId"));
+          if (loadCatalogButton != null) {
+            loadCatalogButton.setText(Messages.t("control.admin.loadCatalog"));
+          }
+        });
   }
 
   private void addAdminRoleRow(JPanel form, GridBagConstraints gc) {
@@ -1104,7 +1142,8 @@ final class SettingsPanel extends JPanel {
     gc.gridx = 0;
     gc.weightx = 0;
     gc.fill = GridBagConstraints.NONE;
-    form.add(ConsoleLook.fieldLabel("Admin role"), gc);
+    JLabel left = ConsoleLook.fieldLabel(Messages.t("control.admin.role"));
+    form.add(left, gc);
     gc.gridx = 1;
     gc.weightx = 1;
     gc.fill = GridBagConstraints.HORIZONTAL;
@@ -1114,14 +1153,15 @@ final class SettingsPanel extends JPanel {
     adminRoleStatus.setFont(ConsoleLook.uiSmall());
     adminRoleStatus.setForeground(ConsoleLook.MUTED);
     form.add(adminRoleStatus, gc);
+    localeRefresh.add(() -> left.setText(Messages.t("control.admin.role")));
   }
 
   private void loadCatalogFromDb(String preferClient, String preferRole) {
     LocalConfigFile.Form snapshot = jdbcSnapshot();
     clientId.setEnabled(false);
     adminRole.setEnabled(false);
-    clientIdStatus.setText("Loading Clients…");
-    adminRoleStatus.setText("Loading Roles…");
+    clientIdStatus.setText(Messages.t("control.admin.loadingClients"));
+    adminRoleStatus.setText(Messages.t("control.admin.loadingRoles"));
     new SwingWorker<JdbcClientChoices.Result, Void>() {
       @Override
       protected JdbcClientChoices.Result doInBackground() {
@@ -1135,10 +1175,10 @@ final class SettingsPanel extends JPanel {
           String clientError = result.error();
           String roleError = result.error();
           if (clientError.isBlank() && result.items().isEmpty()) {
-            clientError = "No enabled Clients in this database.";
+            clientError = Messages.t("control.admin.noClients");
           }
           if (roleError.isBlank() && result.roles().isEmpty()) {
-            roleError = "No Roles in this database.";
+            roleError = Messages.t("control.admin.noRoles");
           }
           fillClientId(result.items(), preferClient, clientError);
           fillAdminRole(result.roles(), preferRole, roleError);
@@ -1199,8 +1239,7 @@ final class SettingsPanel extends JPanel {
     if (error != null && !error.isBlank()) {
       clientIdStatus.setText(error);
     } else {
-      int n = model.getSize();
-      clientIdStatus.setText(n + " enabled client" + (n == 1 ? "" : "s") + " from the database");
+      clientIdStatus.setText(Messages.t("control.admin.clientsCount", model.getSize()));
     }
   }
 
@@ -1219,8 +1258,7 @@ final class SettingsPanel extends JPanel {
     if (error != null && !error.isBlank()) {
       adminRoleStatus.setText(error);
     } else {
-      int n = model.getSize();
-      adminRoleStatus.setText(n + " role" + (n == 1 ? "" : "s") + " from the database");
+      adminRoleStatus.setText(Messages.t("control.admin.rolesCount", model.getSize()));
     }
   }
 
@@ -1235,20 +1273,35 @@ final class SettingsPanel extends JPanel {
     return ConsoleLook.formGc();
   }
 
-  private static void addNote(JPanel form, GridBagConstraints gc, String text) {
-    ConsoleLook.addNote(form, gc, text);
+  private void i18nRow(JPanel form, GridBagConstraints gc, String key, java.awt.Component field) {
+    JLabel label = ConsoleLook.addRow(form, gc, Messages.t(key), field);
+    localeRefresh.add(() -> label.setText(Messages.t(key)));
   }
 
-  private static void addProcessRows(JPanel form, GridBagConstraints gc, ProcessFields fields) {
+  private void i18nNote(JPanel form, GridBagConstraints gc, String key) {
+    JLabel note = ConsoleLook.addNote(form, gc, Messages.t(key));
+    localeRefresh.add(() -> note.setText(ConsoleLook.noteHtml(Messages.t(key))));
+  }
+
+  private void i18nSection(JPanel form, GridBagConstraints gc, String key) {
+    JLabel section = ConsoleLook.addSection(form, gc, Messages.t(key));
+    localeRefresh.add(() -> section.setText(Messages.t(key)));
+  }
+
+  private void i18nCheck(JCheckBox box, String key) {
+    box.setText(Messages.t(key));
+    localeRefresh.add(() -> box.setText(Messages.t(key)));
+  }
+
+  private void addProcessRows(JPanel form, GridBagConstraints gc, ProcessFields fields) {
     fields.protocol.setEditable(false);
-    ConsoleLook.addRow(form, gc, "Protocol", fields.protocol);
-    ConsoleLook.addRow(form, gc, "Listen port", fields.port);
-    ConsoleLook.addNote(form, gc, "TCP port this process binds. Health checks use localhost plus this port.");
-    ConsoleLook.addRow(form, gc, "Java heap (MB)", fields.heapMb);
-    ConsoleLook.addNote(form, gc, "Passed as -Xmx to this process only. 512 is a reasonable default.");
-    ConsoleLook.addRow(form, gc, "DB pool size", fields.dbPool);
-    ConsoleLook.addNote(
-        form, gc, "Hikari pool for this process. SQLite should stay 1–8; SQL Server can go higher.");
+    i18nRow(form, gc, "control.process.protocol", fields.protocol);
+    i18nRow(form, gc, "control.process.port", fields.port);
+    i18nNote(form, gc, "control.process.port.note");
+    i18nRow(form, gc, "control.process.heap", fields.heapMb);
+    i18nNote(form, gc, "control.process.heap.note");
+    i18nRow(form, gc, "control.process.pool", fields.dbPool);
+    i18nNote(form, gc, "control.process.pool.note");
   }
 
   private static void fillProcess(ProcessFields fields, LocalConfigFile.ProcessRuntime runtime) {
@@ -1265,10 +1318,6 @@ final class SettingsPanel extends JPanel {
     int heap = LocalConfigFile.parseInt(fields.heapMb.getText(), LocalConfigFile.DEFAULT_HEAP_MB);
     int pool = LocalConfigFile.parseInt(fields.dbPool.getText(), LocalConfigFile.DEFAULT_DB_POOL);
     return LocalConfigFile.ProcessRuntime.of(port <= 0 ? 8080 : port, ssl, heap, pool);
-  }
-
-  private static void addRow(JPanel form, GridBagConstraints gc, String label, java.awt.Component field) {
-    ConsoleLook.addRow(form, gc, label, field);
   }
 
   private static final class ProcessFields {

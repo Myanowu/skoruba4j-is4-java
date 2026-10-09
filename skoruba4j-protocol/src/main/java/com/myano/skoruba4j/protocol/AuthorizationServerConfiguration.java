@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
@@ -39,7 +40,6 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
-import org.springframework.security.oauth2.server.authorization.token.OAuth2RefreshTokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 import org.springframework.security.web.SecurityFilterChain;
@@ -64,6 +64,7 @@ public class AuthorizationServerConfiguration {
       DelegationGrantAuthenticationProvider delegationProvider,
       PasswordGrantAuthenticationConverter passwordConverter,
       PasswordGrantAuthenticationProvider passwordProvider,
+      Is4PublicClientSecretOptionalConverter publicClientSecretOptionalConverter,
       Is4PublicClientAuthenticationConverter publicClientAuthenticationConverter,
       Is4PublicClientAuthenticationProvider publicClientAuthenticationProvider,
       Is4OidcLogoutAuthenticationProvider oidcLogoutAuthenticationProvider,
@@ -84,9 +85,12 @@ public class AuthorizationServerConfiguration {
                 as.clientAuthentication(
                         clientAuth ->
                             clientAuth
+                                // Before ClientSecretPost: IS4 public clients may still send a secret.
+                                .authenticationConverter(publicClientSecretOptionalConverter)
                                 .authenticationConverter(publicClientAuthenticationConverter)
                                 // Before SAS PublicClientAuthenticationProvider (PKCE-required).
-                                .authenticationProvider(publicClientAuthenticationProvider))
+                                .authenticationProvider(publicClientAuthenticationProvider)
+                                .errorResponseHandler(new Is4ClientAuthenticationFailureHandler()))
                     .tokenEndpoint(
                         token ->
                             token
@@ -149,12 +153,14 @@ public class AuthorizationServerConfiguration {
   /**
    * Runs just before Spring Security so browser {@code /connect/authorize} can offer the account
    * chooser before SAS issues a code (SAS endpoint filter has no registered HttpSecurity order).
+   * Disabled when {@code idserver.login.account-chooser=false}.
    */
   @Bean
-  public FilterRegistrationBean<AccountChooserAuthorizeFilter> accountChooserAuthorizeFilter() {
+  public FilterRegistrationBean<AccountChooserAuthorizeFilter> accountChooserAuthorizeFilter(
+      @Value("${idserver.login.account-chooser:true}") boolean accountChooser) {
     FilterRegistrationBean<AccountChooserAuthorizeFilter> registration =
         new FilterRegistrationBean<>();
-    registration.setFilter(new AccountChooserAuthorizeFilter());
+    registration.setFilter(new AccountChooserAuthorizeFilter(accountChooser));
     registration.addUrlPatterns(Is4Paths.AUTHORIZE);
     registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
     return registration;
@@ -251,7 +257,8 @@ public class AuthorizationServerConfiguration {
       JwtEncoder jwtEncoder, OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer) {
     JwtGenerator jwtGenerator = new JwtGenerator(jwtEncoder);
     jwtGenerator.setJwtCustomizer(jwtCustomizer);
-    return new DelegatingOAuth2TokenGenerator(jwtGenerator, new OAuth2RefreshTokenGenerator());
+    // IS4 AllowOfflineAccess public clients need refresh tokens; SAS skips them for auth method none.
+    return new DelegatingOAuth2TokenGenerator(jwtGenerator, new Is4RefreshTokenGenerator());
   }
 
   @Bean
@@ -284,7 +291,17 @@ public class AuthorizationServerConfiguration {
     return new PasswordGrantAuthenticationConverter();
   }
 
-  /** Public client_id auth for password/delegation grants (SAS PKCE converter skips these). */
+  /**
+   * IS4 {@code RequireClientSecret=false}: a posted {@code client_secret} must not select
+   * confidential client authentication (callers such as ASP.NET OpenIdConnect still send one).
+   */
+  @Bean
+  public Is4PublicClientSecretOptionalConverter is4PublicClientSecretOptionalConverter(
+      RegisteredClientRepository registeredClientRepository) {
+    return new Is4PublicClientSecretOptionalConverter(registeredClientRepository);
+  }
+
+  /** Public client_id auth for password/delegation/refresh (SAS PKCE converter skips these). */
   @Bean
   public Is4PublicClientAuthenticationConverter is4PublicClientAuthenticationConverter() {
     return new Is4PublicClientAuthenticationConverter();
@@ -300,8 +317,13 @@ public class AuthorizationServerConfiguration {
     return new Is4PublicClientAuthenticationProvider(registeredClientRepository);
   }
 
-  /** Shared-secret hasher for confidential clients (not for Users.PasswordHash). */
+  /**
+   * Shared-secret hasher for confidential clients (not for Users.PasswordHash). {@code @Primary} so
+   * SAS {@code getIfUnique(PasswordEncoder)} does not fall back to {@code DelegatingPasswordEncoder}
+   * when the login encoder is also a {@link PasswordEncoder} bean.
+   */
   @Bean
+  @Primary
   public PasswordEncoder passwordEncoder() {
     return new Is4ClientSecretPasswordEncoder();
   }
@@ -346,9 +368,15 @@ public class AuthorizationServerConfiguration {
         }
       }
       List<String> scopesToAdvertise = DiscoveryScopes.merge(fromDb);
-      builder.scopes(scopes -> scopes.addAll(scopesToAdvertise));
+      builder.scopes(
+          scopes -> {
+            scopes.clear();
+            scopes.addAll(scopesToAdvertise);
+          });
       builder.claim("frontchannel_logout_supported", true);
       builder.claim("frontchannel_logout_session_supported", true);
+      // SAS advertises true; C# IS4 does not. IdentityModel may treat this as mTLS-bound tokens.
+      builder.claim("tls_client_certificate_bound_access_tokens", false);
     };
   }
 
@@ -359,7 +387,7 @@ public class AuthorizationServerConfiguration {
       JwtDecoder jwtDecoder,
       RegisteredClientRepository clients,
       OAuth2AuthorizationService authorizations) {
-    logout.logoutResponseHandler(Is4LogoutResponseHandler.create());
+    logout.logoutResponseHandler(Is4LogoutResponseHandler.create(clients));
     if (mode.isCompatible()) {
       logout.authenticationProviders(
           providers -> {

@@ -42,6 +42,20 @@ class Is4PublicClientAuthenticationProviderTest {
     assertTrue(result.isAuthenticated());
   }
 
+  /** Public-client refresh must succeed without PKCE (ASP.NET still posts a secret upstream). */
+  @Test
+  void authenticatesRefreshGrantWithoutCodeVerifier() {
+    OAuth2ClientAuthenticationToken request =
+        new OAuth2ClientAuthenticationToken(
+            "skoruba4j-admin",
+            ClientAuthenticationMethod.NONE,
+            null,
+            Map.of(OAuth2ParameterNames.GRANT_TYPE, "refresh_token"));
+    var result = provider.authenticate(request);
+    assertNotNull(result);
+    assertTrue(result.isAuthenticated());
+  }
+
   /** authorization_code stays with SAS PublicClientAuthenticationProvider (PKCE). */
   @Test
   void ignoresAuthorizationCodeGrant() {

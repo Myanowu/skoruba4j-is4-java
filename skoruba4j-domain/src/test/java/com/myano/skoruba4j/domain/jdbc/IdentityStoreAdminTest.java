@@ -35,6 +35,21 @@ class IdentityStoreAdminTest {
     IdentityStoreAdmin.Report again = IdentityStoreAdmin.inspect(ds, DbProvider.SQLITE, TableStyle.SKORUBA);
     assertEquals(1, again.tables().stream().filter(t -> "Users".equals(t.name())).findFirst().orElseThrow().rows());
 
+    IdentityStoreAdmin.TableSchema schema =
+        IdentityStoreAdmin.describe(ds, DbProvider.SQLITE, TableStyle.SKORUBA, "Users");
+    assertTrue(schema.error() == null || schema.error().isBlank());
+    assertTrue(schema.columns().size() >= 5);
+    assertTrue(
+        schema.columns().stream()
+            .anyMatch(c -> "UserName".equalsIgnoreCase(c.name()) || "Username".equalsIgnoreCase(c.name())));
+    assertTrue(schema.columns().stream().anyMatch(IdentityStoreAdmin.ColumnDef::primaryKey));
+    IdentityStoreAdmin.ColumnDef idCol =
+        schema.columns().stream()
+            .filter(c -> "Id".equalsIgnoreCase(c.name()))
+            .findFirst()
+            .orElseThrow();
+    assertTrue(idCol.typeDisplay() != null && !idCol.typeDisplay().isBlank());
+
     IdentityStoreAdmin.Preview preview =
         IdentityStoreAdmin.preview(ds, DbProvider.SQLITE, TableStyle.SKORUBA, "Users", 100);
     assertTrue(preview.error() == null || preview.error().isBlank());

@@ -31,9 +31,9 @@ Skoruba4j 保住的是旧栈已经付过的契约：
 
 状态与 [COMPATIBILITY.md](../COMPATIBILITY.md) 一致：**Y** 带测试交付；**P** 部分/计划；**N** 不做。
 
-**OpenID Connect 1.0（Y）：** Discovery、JWKS、Authorization Code + PKCE、ID Token（JWT）、UserInfo、RP-Initiated Logout（`/connect/endsession`）。Introspection 为 **P**。
+**OpenID Connect 1.0（Y）：** Discovery、JWKS、Authorization Code + PKCE、ID Token（JWT）、UserInfo、RP-Initiated Logout（`/connect/endsession`）、Introspection（`/connect/introspect`）。
 
-**OAuth 2.0（Y）：** `authorization_code` + PKCE、`refresh_token` / `offline_access`、`/connect/token`。**P：** revocation、`client_credentials`、Device Code、IS4 `delegation`、Resource Owner Password（客户端须允许 `password`）。**N：** implicit、mTLS。
+**OAuth 2.0（Y）：** `authorization_code` + PKCE、`refresh_token` / `offline_access`、`/connect/token`、`/connect/revocation`、`client_credentials`、Resource Owner Password（客户端须允许 `password`；`StsPasswordGrantTest`）。**P：** Device Code、IS4 `delegation`。**N：** implicit、mTLS。
 
 **令牌：** JWT access token；`aud` = `ApiResources.Name`；`sub` = Identity 用户 Id。不把 reference token 当作 STS 现网存储。
 

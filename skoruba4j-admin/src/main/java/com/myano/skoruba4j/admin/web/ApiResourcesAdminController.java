@@ -584,11 +584,13 @@ public class ApiResourcesAdminController {
         <script>
         (function(){
           function generateSecret(){
-            var bytes=new Uint8Array(32);
-            crypto.getRandomValues(bytes);
-            var bin='';
-            for(var i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
-            return btoa(bin).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+            var b=new Uint8Array(16);
+            crypto.getRandomValues(b);
+            b[6]=b[6]&0x0f|0x40;
+            b[8]=b[8]&0x3f|0x80;
+            var h=[];
+            for(var i=0;i<16;i++) h.push(('0'+b[i].toString(16)).slice(-2));
+            return h.slice(0,4).join('')+'-'+h.slice(4,6).join('')+'-'+h.slice(6,8).join('')+'-'+h.slice(8,10).join('')+'-'+h.slice(10).join('');
           }
           function openDialog(id){
             var d=document.getElementById(id);

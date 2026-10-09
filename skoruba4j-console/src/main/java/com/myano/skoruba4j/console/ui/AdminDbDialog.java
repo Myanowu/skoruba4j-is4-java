@@ -14,6 +14,8 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Frame;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
@@ -36,8 +38,10 @@ import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JSplitPane;
@@ -140,6 +144,25 @@ final class AdminDbDialog extends JDialog {
         e -> {
           if (!e.getValueIsAdjusting()) {
             onTableSelected();
+          }
+        });
+    JPopupMenu tablePopup = new JPopupMenu();
+    JMenuItem copySelect = new JMenuItem("Copy SELECT…");
+    copySelect.addActionListener(e -> copySelectForSelectedTable());
+    tablePopup.add(copySelect);
+    JMenuItem properties = new JMenuItem("Properties…");
+    properties.addActionListener(e -> showTableProperties());
+    tablePopup.add(properties);
+    tableList.addMouseListener(
+        new MouseAdapter() {
+          @Override
+          public void mousePressed(MouseEvent e) {
+            maybeShowTablePopup(e, tablePopup);
+          }
+
+          @Override
+          public void mouseReleased(MouseEvent e) {
+            maybeShowTablePopup(e, tablePopup);
           }
         });
     tableFilter.putClientProperty("JTextField.placeholderText", "Filter tables…");
@@ -369,7 +392,7 @@ final class AdminDbDialog extends JDialog {
     helpText
         .append("Explore + emergency ops — not a substitute for Admin.\n")
         .append(
-            "Filter tables · click column headers to sort · secrets masked · Edit row / double-click for emergency edit.\n")
+            "Filter tables · right-click table for SELECT / columns · click column headers to sort · secrets masked · Edit row / double-click for emergency edit.\n")
         .append(
             "Restore auto-backs up first. Day-to-day Users/Clients changes belong in skoruba4j-admin.");
     if ("sqlite".equalsIgnoreCase(provider)) {
@@ -386,6 +409,140 @@ final class AdminDbDialog extends JDialog {
     int next = Math.max(0, ((Number) offsetSpinner.getValue()).intValue() + delta);
     offsetSpinner.setValue(next);
     loadPreview(selectedTable);
+  }
+
+  private void maybeShowTablePopup(MouseEvent e, JPopupMenu popup) {
+    if (!e.isPopupTrigger() || busy) {
+      return;
+    }
+    int index = tableList.locationToIndex(e.getPoint());
+    if (index >= 0) {
+      tableList.setSelectedIndex(index);
+    }
+    TableItem item = tableList.getSelectedValue();
+    if (item == null || item.name() == null || item.name().isBlank()) {
+      return;
+    }
+    popup.show(tableList, e.getX(), e.getY());
+  }
+
+  private void copySelectForSelectedTable() {
+    TableItem item = tableList.getSelectedValue();
+    if (item == null || item.name() == null || item.name().isBlank()) {
+      return;
+    }
+    LocalConfigFile.Form form = settings.get();
+    DbProvider provider = DbProvider.fromConfig(form == null ? null : form.provider);
+    String sql = "SELECT * FROM " + new SqlDialect(provider).quote(item.name());
+    Toolkit.getDefaultToolkit()
+        .getSystemClipboard()
+        .setContents(new StringSelection(sql), null);
+    JTextArea area = new JTextArea(sql, 3, 52);
+    area.setEditable(true);
+    area.setLineWrap(true);
+    area.setWrapStyleWord(true);
+    area.setFont(ConsoleLook.mono());
+    area.selectAll();
+    JOptionPane.showMessageDialog(
+        this, new JScrollPane(area), "SELECT — " + item.name(), JOptionPane.INFORMATION_MESSAGE);
+    appendLog("Copied SELECT for " + item.name());
+  }
+
+  private void showTableProperties() {
+    TableItem item = tableList.getSelectedValue();
+    if (item == null || item.name() == null || item.name().isBlank() || busy) {
+      return;
+    }
+    String table = item.name();
+    setBusy(true);
+    previewStatus.setText("Loading columns…");
+    new SwingWorker<IdentityStoreAdmin.TableSchema, Void>() {
+      @Override
+      protected IdentityStoreAdmin.TableSchema doInBackground() throws Exception {
+        LocalConfigFile.Form form = settings.get();
+        DataSource ds = JdbcClientChoices.open(form, installHome);
+        DbProvider provider = DbProvider.fromConfig(form.provider);
+        TableStyle style = TableStyle.fromConfig(form.tableStyle);
+        return IdentityStoreAdmin.describe(ds, provider, style, table);
+      }
+
+      @Override
+      protected void done() {
+        setBusy(false);
+        try {
+          IdentityStoreAdmin.TableSchema schema = get();
+          if (schema.error() != null && !schema.error().isBlank()) {
+            previewStatus.setText(schema.error());
+            JOptionPane.showMessageDialog(
+                AdminDbDialog.this, schema.error(), "Columns — " + table, JOptionPane.ERROR_MESSAGE);
+            return;
+          }
+          previewStatus.setText(schema.table() + ": " + schema.columns().size() + " column(s)");
+          appendLog("Columns for " + schema.table() + " (" + schema.columns().size() + ")");
+          showColumnDialog(schema);
+        } catch (Exception e) {
+          previewStatus.setText(formatError(e));
+          JOptionPane.showMessageDialog(
+              AdminDbDialog.this, formatError(e), "Columns", JOptionPane.ERROR_MESSAGE);
+        }
+      }
+    }.execute();
+  }
+
+  private void showColumnDialog(IdentityStoreAdmin.TableSchema schema) {
+    String[] headers = {"#", "Name", "Type", "Length", "Scale", "Null", "PK", "Identity", "Default"};
+    DefaultTableModel model =
+        new DefaultTableModel(headers, 0) {
+          @Override
+          public boolean isCellEditable(int row, int column) {
+            return false;
+          }
+        };
+    for (IdentityStoreAdmin.ColumnDef col : schema.columns()) {
+      model.addRow(
+          new Object[] {
+            col.ordinal(),
+            col.name(),
+            col.typeDisplay(),
+            col.size() > 0 ? Integer.toString(col.size()) : "",
+            col.scale() > 0 ? Integer.toString(col.scale()) : "",
+            col.nullable() ? "YES" : "NO",
+            col.primaryKey() ? "PK" : "",
+            col.autoIncrement() ? "YES" : "",
+            col.defaultValue() == null ? "" : col.defaultValue()
+          });
+    }
+    JTable table = new JTable(model);
+    table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+    table.setFont(ConsoleLook.ui().deriveFont(java.awt.Font.PLAIN, 11f));
+    table.setRowHeight(18);
+    table.getTableHeader().setFont(ConsoleLook.ui().deriveFont(java.awt.Font.BOLD, 11f));
+    table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+    int[] widths = {36, 160, 160, 64, 48, 48, 36, 64, 180};
+    for (int i = 0; i < widths.length && i < table.getColumnCount(); i++) {
+      table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+    }
+    JScrollPane scroll = new JScrollPane(table);
+    scroll.setPreferredSize(new Dimension(780, 360));
+    JDialog dialog = new JDialog(this, "Columns — " + schema.table(), true);
+    dialog.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+    JPanel root = new JPanel(new BorderLayout(8, 8));
+    root.setBorder(new EmptyBorder(12, 12, 12, 12));
+    JLabel hint =
+        new JLabel(schema.columns().size() + " column(s) · " + schema.table() + " (read-only)");
+    hint.setFont(ConsoleLook.uiSmall());
+    hint.setForeground(ConsoleLook.MUTED);
+    root.add(hint, BorderLayout.NORTH);
+    root.add(scroll, BorderLayout.CENTER);
+    JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+    JButton close = new JButton("Close");
+    close.addActionListener(e -> dialog.dispose());
+    south.add(close);
+    root.add(south, BorderLayout.SOUTH);
+    dialog.setContentPane(root);
+    dialog.pack();
+    dialog.setLocationRelativeTo(this);
+    dialog.setVisible(true);
   }
 
   private void onTableSelected() {

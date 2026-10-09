@@ -14,8 +14,8 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 
 /**
- * Authenticates public clients ({@link ClientAuthenticationMethod#NONE}) for password / delegation
- * grants without PKCE.
+ * Authenticates public clients ({@link ClientAuthenticationMethod#NONE}) for password, delegation,
+ * and refresh grants without PKCE.
  *
  * <p>SAS {@code PublicClientAuthenticationProvider} always calls {@code
  * CodeVerifierAuthenticator.authenticateRequired}. For non-authorization_code grants that method
@@ -31,8 +31,8 @@ public final class Is4PublicClientAuthenticationProvider implements Authenticati
   }
 
   /**
-   * Returns an authenticated client token for password/delegation public clients; otherwise {@code
-   * null} so SAS PKCE public-client handling stays for authorization_code.
+   * Returns an authenticated client token for password, delegation, and refresh public clients;
+   * otherwise {@code null} so SAS PKCE handling stays for authorization_code.
    */
   @Override
   public Authentication authenticate(Authentication authentication) throws AuthenticationException {

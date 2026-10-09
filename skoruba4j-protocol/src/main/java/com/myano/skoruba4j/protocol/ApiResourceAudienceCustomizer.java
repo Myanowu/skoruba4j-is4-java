@@ -22,8 +22,6 @@ public final class ApiResourceAudienceCustomizer implements OAuth2TokenCustomize
     }
     Set<String> scopes = context.getAuthorizedScopes();
     List<String> resourceNames = audiences.resourceNamesForScopes(scopes);
-    if (!resourceNames.isEmpty()) {
-      context.getClaims().audience(resourceNames);
-    }
+    Is4AccessTokenClaims.apply(context, resourceNames);
   }
 }

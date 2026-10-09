@@ -4,6 +4,7 @@ import com.myano.skoruba4j.domain.identity.IdentityUser;
 import com.myano.skoruba4j.domain.jdbc.JdbcRepositories;
 import com.myano.skoruba4j.protocol.AccountChooser;
 import com.myano.skoruba4j.protocol.Is4ReturnUrls;
+import com.myano.skoruba4j.sts.config.IdserverProperties;
 import com.myano.skoruba4j.sts.security.externallogin.AuthorizeClientIds;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,9 +23,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 public class AccountChooserController {
   private final Optional<JdbcRepositories> jdbc;
+  private final IdserverProperties props;
 
-  public AccountChooserController(Optional<JdbcRepositories> jdbc) {
+  public AccountChooserController(Optional<JdbcRepositories> jdbc, IdserverProperties props) {
     this.jdbc = jdbc;
+    this.props = props;
   }
 
   @GetMapping(value = AccountChooser.CHOOSE_PATH, produces = "text/html;charset=UTF-8")
@@ -35,12 +38,31 @@ public class AccountChooserController {
       Authentication authentication,
       @RequestParam(value = "ReturnUrl", required = false) String returnUrl)
       throws IOException {
+    if (!props.accountChooserEnabled()) {
+      if (signedIn(authentication) && Is4ReturnUrls.isSafe(returnUrl)) {
+        AccountChooser.markApproved(request.getSession(true), returnUrl);
+        response.sendRedirect(returnUrl);
+      } else if (Is4ReturnUrls.isSafe(returnUrl)) {
+        response.sendRedirect(
+            "/login?ReturnUrl="
+                + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8));
+      } else {
+        response.sendRedirect(signedIn(authentication) ? "/" : "/login");
+      }
+      return null;
+    }
     if (!signedIn(authentication)) {
       response.sendRedirect(
           Is4ReturnUrls.isSafe(returnUrl)
               ? "/login?ReturnUrl="
                   + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
               : "/login");
+      return null;
+    }
+    if (Is4ReturnUrls.isSafe(returnUrl)
+        && AccountChooser.consumeFreshLogin(request.getSession(false))) {
+      AccountChooser.markApproved(request.getSession(true), returnUrl);
+      response.sendRedirect(returnUrl);
       return null;
     }
     AuthorizeClientIds.rememberFromReturnUrl(request, returnUrl);

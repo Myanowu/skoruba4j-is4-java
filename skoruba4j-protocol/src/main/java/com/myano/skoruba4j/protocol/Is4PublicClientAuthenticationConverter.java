@@ -51,12 +51,19 @@ public final class Is4PublicClientAuthenticationConverter implements Authenticat
         clientId.trim(), ClientAuthenticationMethod.NONE, null, additional);
   }
 
-  /** Whether this converter should attempt public-client authentication for the grant. */
+  /**
+   * Grants this converter and {@link Is4PublicClientAuthenticationProvider} may authenticate as
+   * {@link ClientAuthenticationMethod#NONE} without PKCE. Authorization-code stays with SAS so
+   * {@code code_verifier} is checked.
+   */
   static boolean supportsGrant(String grantType) {
     if (!StringUtils.hasText(grantType)) {
       return false;
     }
     if (AuthorizationGrantType.PASSWORD.getValue().equals(grantType)) {
+      return true;
+    }
+    if (AuthorizationGrantType.REFRESH_TOKEN.getValue().equals(grantType)) {
       return true;
     }
     return DelegationGrantAuthenticationToken.DELEGATION.getValue().equals(grantType);

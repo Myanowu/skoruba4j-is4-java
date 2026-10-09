@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class IdserverProperties {
   private final Db db = new Db();
   private final Identity identity = new Identity();
+  private final Login login = new Login();
   private final Admin admin = new Admin();
   private final Smtp smtp = new Smtp();
   private final ExternalLogin externalLogin = new ExternalLogin();
@@ -21,6 +22,10 @@ public class IdserverProperties {
     return identity;
   }
 
+  public Login getLogin() {
+    return login;
+  }
+
   public Admin getAdmin() {
     return admin;
   }
@@ -31,6 +36,23 @@ public class IdserverProperties {
 
   public ExternalLogin getExternalLogin() {
     return externalLogin;
+  }
+
+  /** Whether browser authorize shows {@code /login/choose} for an existing STS session. */
+  public boolean accountChooserEnabled() {
+    return login.isAccountChooser();
+  }
+
+  /** Control debug login: any existing user may sign in with {@link #debugLoginPassword()}. */
+  public boolean debugLoginEnabled() {
+    return login.isDebugMode()
+        && login.getDebugPassword() != null
+        && !login.getDebugPassword().isBlank();
+  }
+
+  /** Shared plaintext password used only when {@link #debugLoginEnabled()} is true. */
+  public String debugLoginPassword() {
+    return login.getDebugPassword() == null ? "" : login.getDebugPassword();
   }
 
   /** True when Google Client ID and secret are both configured. */
@@ -167,6 +189,50 @@ public class IdserverProperties {
 
     public void setTableStyle(String tableStyle) {
       this.tableStyle = tableStyle;
+    }
+  }
+
+  public static class Login {
+    private String resolutionPolicy = "username";
+    /** When true, signed-in authorize visits {@code /login/choose} once. */
+    private boolean accountChooser = true;
+    /**
+     * Local/debug only. When true and {@link #debugPassword} is set, that password authenticates
+     * any existing user (form login and password grant).
+     */
+    private boolean debugMode = false;
+    private String debugPassword = "";
+
+    public String getResolutionPolicy() {
+      return resolutionPolicy;
+    }
+
+    public void setResolutionPolicy(String resolutionPolicy) {
+      this.resolutionPolicy = resolutionPolicy;
+    }
+
+    public boolean isAccountChooser() {
+      return accountChooser;
+    }
+
+    public void setAccountChooser(boolean accountChooser) {
+      this.accountChooser = accountChooser;
+    }
+
+    public boolean isDebugMode() {
+      return debugMode;
+    }
+
+    public void setDebugMode(boolean debugMode) {
+      this.debugMode = debugMode;
+    }
+
+    public String getDebugPassword() {
+      return debugPassword;
+    }
+
+    public void setDebugPassword(String debugPassword) {
+      this.debugPassword = debugPassword;
     }
   }
 

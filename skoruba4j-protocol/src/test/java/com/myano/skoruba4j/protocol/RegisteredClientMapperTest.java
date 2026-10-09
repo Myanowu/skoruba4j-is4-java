@@ -89,4 +89,37 @@ class RegisteredClientMapperTest {
     assertFalse(client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.REFRESH_TOKEN));
     assertFalse(client.getScopes().contains("offline_access"));
   }
+
+  @Test
+  void keepsEverySharedSecretSoARotatedSecretStillAuthenticates() {
+    ClientConfiguration config =
+        ClientConfiguration.protocolSample(
+            5,
+            "machine",
+            "Machine",
+            true,
+            true,
+            false,
+            false,
+            3600,
+            86400,
+            List.of("client_credentials"),
+            List.of("api"),
+            List.of(),
+            List.of(),
+            List.of(
+                new ClientConfiguration.ClientSecretValue(
+                    1, Is4ClientSecretPasswordEncoder.sha256Base64("old"), "SharedSecret", null),
+                new ClientConfiguration.ClientSecretValue(
+                    2,
+                    Is4ClientSecretPasswordEncoder.sha256Base64("current"),
+                    "SharedSecret",
+                    null)));
+    RegisteredClient client =
+        RegisteredClientMapper.toRegisteredClient(config, Instant.parse("2026-01-01T00:00:00Z"));
+    Is4ClientSecretPasswordEncoder encoder = new Is4ClientSecretPasswordEncoder();
+    assertTrue(encoder.matches("old", client.getClientSecret()));
+    assertTrue(encoder.matches("current", client.getClientSecret()));
+    assertFalse(encoder.matches("other", client.getClientSecret()));
+  }
 }

@@ -202,7 +202,9 @@ public final class ClientRepository {
                     List.of(),
                     List.of(),
                     List.of(),
-                    List.of()),
+                    List.of(),
+                    rs.getBoolean("AlwaysSendClientClaims"),
+                    rs.getString("ClientClaimsPrefix")),
             args);
     return core.map(this::withChildRows);
   }
@@ -234,7 +236,9 @@ public final class ClientRepository {
         strings(ConfigurationTables.CLIENT_CORS_ORIGINS, "Origin", id),
         claims(id),
         properties(id),
-        secrets(id));
+        secrets(id),
+        core.alwaysSendClientClaims(),
+        core.clientClaimsPrefix());
   }
 
   private List<String> strings(String table, String column, int clientPk) {
@@ -702,7 +706,9 @@ public final class ClientRepository {
         dialect.quote("SlidingRefreshTokenLifetime"),
         dialect.quote("AccessTokenType"),
         dialect.quote("FrontChannelLogoutUri"),
-        dialect.quote("BackChannelLogoutUri"));
+        dialect.quote("BackChannelLogoutUri"),
+        dialect.quote("AlwaysSendClientClaims"),
+        dialect.quote("ClientClaimsPrefix"));
   }
 
   private List<ClientConfiguration.ClientClaim> claims(int clientPk) {

@@ -1,6 +1,7 @@
 package com.myano.skoruba4j.sts.web;
 
 import com.myano.skoruba4j.protocol.AccountChooser;
+import com.myano.skoruba4j.protocol.Is4ReturnUrls;
 import com.myano.skoruba4j.sts.config.IdserverProperties;
 import com.myano.skoruba4j.sts.security.externallogin.AuthorizeClientIds;
 import com.myano.skoruba4j.sts.security.externallogin.ExternalIdentityLinker;
@@ -55,7 +56,20 @@ public class LoginController {
         && authentication != null
         && authentication.isAuthenticated()
         && !(authentication instanceof AnonymousAuthenticationToken)) {
-      response.sendRedirect(AccountChooser.chooseRedirect(returnUrl));
+      if (Is4ReturnUrls.isSafe(returnUrl)
+          && AccountChooser.isFreshLogin(request.getSession(false))) {
+        response.sendRedirect(returnUrl);
+        return null;
+      }
+      if (props.accountChooserEnabled() && Is4ReturnUrls.isSafe(returnUrl)) {
+        response.sendRedirect(AccountChooser.chooseRedirect(returnUrl));
+        return null;
+      }
+      if (Is4ReturnUrls.isSafe(returnUrl)) {
+        response.sendRedirect(returnUrl);
+      } else {
+        response.sendRedirect("/");
+      }
       return null;
     }
     AuthorizeClientIds.rememberFromReturnUrl(request, returnUrl);

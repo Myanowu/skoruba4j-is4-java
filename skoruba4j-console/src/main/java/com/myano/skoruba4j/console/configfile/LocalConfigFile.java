@@ -51,6 +51,17 @@ public final class LocalConfigFile {
     public String issuerUri = "";
     public String endSession = "";
     /**
+     * STS browser account picker ({@code /login/choose}). Default on; Control can turn off for
+     * silent SSO resume.
+     */
+    public boolean accountChooserEnabled = true;
+    /**
+     * Local debug: any existing user may sign in with {@link #debugPassword}. Default off. Leave
+     * password blank on Save to keep the previous value.
+     */
+    public boolean debugMode = false;
+    public String debugPassword = "";
+    /**
      * {@code local} | {@code sts-password} | {@code sts-oidc}. Default {@link
      * #DEFAULT_LOGIN_MODE}.
      */
@@ -239,8 +250,8 @@ public final class LocalConfigFile {
   }
 
   /**
-   * Private Spring profile yaml ({@code application-local.yml}). Falls back to legacy {@code
-   * application-elcss.yml} if present so older installs keep working.
+   * Private Spring profile yaml ({@code application-local.yml}) under the STS Tomcat dir, then the
+   * STS module dir. Returns the module path when neither file exists yet.
    */
   public static Path localProfileFile(Path repoRoot) {
     if (repoRoot != null) {
@@ -249,27 +260,12 @@ public final class LocalConfigFile {
       if (Files.exists(fromTomcat)) {
         return fromTomcat;
       }
-      Path legacyTomcat =
-          repoRoot.resolve("tomcat").resolve("skoruba4j-sts").resolve("application-elcss.yml");
-      if (Files.exists(legacyTomcat)) {
-        return legacyTomcat;
-      }
       Path fromModule = repoRoot.resolve("skoruba4j-sts").resolve("application-local.yml");
       if (Files.exists(fromModule)) {
         return fromModule;
       }
-      Path legacyModule = repoRoot.resolve("skoruba4j-sts").resolve("application-elcss.yml");
-      if (Files.exists(legacyModule)) {
-        return legacyModule;
-      }
     }
     return Path.of("skoruba4j-sts").resolve("application-local.yml");
-  }
-
-  /** @deprecated use {@link #localProfileFile(Path)} */
-  @Deprecated
-  public static Path elcssFile(Path repoRoot) {
-    return localProfileFile(repoRoot);
   }
 
   public static String firstYamlValue(String key, String... yamls) {
@@ -301,9 +297,23 @@ public final class LocalConfigFile {
     form.tableStyle =
         orDefault(firstYamlValue("table-style", overlay, privateYaml), DEFAULT_TABLE_STYLE);
     form.issuerUri =
-        orDefault(firstYamlValue("issuer-uri", overlay, privateYaml), DEFAULT_ISSUER_URI);
+        canonicalizeIssuerUri(
+            orDefault(firstYamlValue("issuer-uri", overlay, privateYaml), DEFAULT_ISSUER_URI));
     form.endSession =
         orDefault(firstYamlValue("end-session", overlay, privateYaml), DEFAULT_END_SESSION);
+    String accountChooserRaw = firstYamlValue("account-chooser", overlay, privateYaml);
+    form.accountChooserEnabled =
+        accountChooserRaw.isBlank() || "true".equalsIgnoreCase(accountChooserRaw);
+    String debugModeRaw = nestedYamlValue(overlay, "login", "debug-mode");
+    if (debugModeRaw.isBlank()) {
+      debugModeRaw = nestedYamlValue(privateYaml, "login", "debug-mode");
+    }
+    form.debugMode = "true".equalsIgnoreCase(debugModeRaw);
+    String debugPassword = nestedYamlValue(overlay, "login", "debug-password");
+    if (debugPassword.isBlank()) {
+      debugPassword = nestedYamlValue(privateYaml, "login", "debug-password");
+    }
+    form.debugPassword = debugPassword;
     form.loginMode = resolveLoginMode(overlay, privateYaml);
     form.oidcEnabled = "sts-oidc".equals(form.loginMode);
     form.clientId =
@@ -411,6 +421,10 @@ public final class LocalConfigFile {
     if (keepResetKey == null || keepResetKey.isBlank()) {
       keepResetKey = nestedYamlValue(previousYaml, "smtp", "reset-key");
     }
+    String keepDebugPassword = f.debugPassword;
+    if (keepDebugPassword == null || keepDebugPassword.isBlank()) {
+      keepDebugPassword = nestedYamlValue(previousYaml, "login", "debug-password");
+    }
     StringBuilder yaml = new StringBuilder();
     yaml.append("# Written by skoruba4j-console. Gitignored. Do not commit.\n");
     yaml.append("server:\n");
@@ -433,7 +447,13 @@ public final class LocalConfigFile {
     yaml.append("    password: ").append(quoted(keepPassword)).append('\n');
     yaml.append("  identity:\n");
     yaml.append("    table-style: ").append(scalar(f.tableStyle, DEFAULT_TABLE_STYLE)).append('\n');
-    yaml.append("  issuer-uri: ").append(quoted(orDefault(f.issuerUri, DEFAULT_ISSUER_URI))).append('\n');
+    yaml.append("  issuer-uri: ")
+        .append(quoted(canonicalizeIssuerUri(orDefault(f.issuerUri, DEFAULT_ISSUER_URI))))
+        .append('\n');
+    yaml.append("  login:\n");
+    yaml.append("    account-chooser: ").append(f.accountChooserEnabled).append('\n');
+    yaml.append("    debug-mode: ").append(f.debugMode).append('\n');
+    yaml.append("    debug-password: ").append(quoted(keepDebugPassword)).append('\n');
     yaml.append("  logout:\n");
     yaml.append("    end-session: ").append(canonicalizeEndSession(f.endSession)).append('\n');
     appendExternalLogin(yaml, f, previousYaml);
@@ -599,6 +619,15 @@ public final class LocalConfigFile {
       return "strict";
     }
     return DEFAULT_END_SESSION;
+  }
+
+  /**
+   * Local dual-run with C# IdentityModel uses {@code localhost}, not {@code 127.0.0.1}. Token {@code
+   * iss} must match Authority / MetadataAddress host or Admin / 4S API return 401.
+   */
+  public static String canonicalizeIssuerUri(String value) {
+    String raw = orDefault(value, DEFAULT_ISSUER_URI).replaceAll("/$", "");
+    return raw.replace("://127.0.0.1", "://localhost").replace("://[::1]", "://localhost");
   }
 
   public static String canonicalizeStoreType(String value) {

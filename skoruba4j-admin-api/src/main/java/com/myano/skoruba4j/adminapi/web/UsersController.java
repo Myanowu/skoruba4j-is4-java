@@ -3,14 +3,18 @@ package com.myano.skoruba4j.adminapi.web;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos.ChangePasswordRequest;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos.RoleAssignmentRequest;
+import com.myano.skoruba4j.adminapi.dto.AdminDtos.UserClaimWrite;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos.UserUpsert;
 import com.myano.skoruba4j.adminapi.dto.AdminDtos.UsersDto;
 import com.myano.skoruba4j.domain.PageQuery;
 import com.myano.skoruba4j.domain.PageResult;
 import com.myano.skoruba4j.domain.identity.IdentityUser;
 import com.myano.skoruba4j.domain.identity.UserProfileWrite;
+import java.net.URI;
 import com.myano.skoruba4j.domain.jdbc.JdbcRepositories;
+import com.myano.skoruba4j.domain.jdbc.UncheckedSqlException;
 import com.myano.skoruba4j.domain.password.IdentityPasswordHasher;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.ResponseEntity;
@@ -70,30 +74,83 @@ public class UsersController {
     if (jdbc.isEmpty()) {
       return ApiResponses.noDatabase();
     }
-    return ResponseEntity.ok(Map.of("roles", jdbc.get().users().listRoleNames(id)));
+    return ResponseEntity.ok(
+        Map.of(
+            "roles",
+            jdbc.get().users().listRoles(id).stream().map(AdminDtos::fromRole).toList()));
   }
 
+  /**
+   * Skoruba {@code POST api/Users} returns 201 and the created user. Password is optional: callers
+   * such as the 4S API set it with {@code POST api/Users/ChangePassword}.
+   *
+   * <p>When the user name already exists, return 201 of that user instead of HTTP 400. 4S
+   * CreateUser always POSTs then ChangePassword; a prior partial success would otherwise 400 and
+   * the NSwag client surfaces only a generic ValidationException (empty ProblemDetails text).
+   */
   @PostMapping
   public ResponseEntity<?> create(@RequestBody UserUpsert body) {
     if (jdbc.isEmpty()) {
       return ApiResponses.noDatabase();
     }
     if (body == null || body.userName() == null || body.userName().isBlank()) {
-      return ApiResponses.badRequest("userName is required");
+      return ApiResponses.validation("UserName", "User name is required");
     }
-    if (body.password() == null || body.password().isBlank()) {
-      return ApiResponses.badRequest("password is required");
+    String userName = body.userName().trim();
+    String normalizedUser = userName.toUpperCase(Locale.ROOT);
+    Optional<IdentityUser> existing = jdbc.get().users().findByNormalizedUserName(normalizedUser);
+    if (existing.isPresent()) {
+      IdentityUser user = applyPhone(existing.get(), body.phoneNumber());
+      return createdUser(user);
     }
-    String hash = hasher.hash(body.password());
-    String id =
-        jdbc.get()
-            .users()
-            .insert(
-                body.userName(),
-                body.email(),
-                body.emailConfirmed() != null && body.emailConfirmed(),
-                hash);
-    return ResponseEntity.ok(Map.of("id", id));
+    String rawPassword = body.password();
+    if (rawPassword == null || rawPassword.isBlank()) {
+      rawPassword = java.util.UUID.randomUUID().toString();
+    }
+    String id;
+    try {
+      id =
+          jdbc.get()
+              .users()
+              .insert(
+                  userName,
+                  body.email(),
+                  body.emailConfirmed() != null && body.emailConfirmed(),
+                  hasher.hash(rawPassword));
+    } catch (UncheckedSqlException ex) {
+      Optional<IdentityUser> raced = jdbc.get().users().findByNormalizedUserName(normalizedUser);
+      if (raced.isPresent()) {
+        return createdUser(applyPhone(raced.get(), body.phoneNumber()));
+      }
+      return ApiResponses.validation("UserName", "User could not be created");
+    }
+    IdentityUser created = jdbc.get().users().findById(id).orElseThrow();
+    return createdUser(applyPhone(created, body.phoneNumber()));
+  }
+
+  private IdentityUser applyPhone(IdentityUser created, String phoneNumber) {
+    if (phoneNumber == null || phoneNumber.isBlank()) {
+      return created;
+    }
+    jdbc.get()
+        .users()
+        .update(
+            created.id(),
+            new UserProfileWrite(
+                created.userName(),
+                created.email(),
+                created.emailConfirmed(),
+                phoneNumber,
+                created.phoneNumberConfirmed(),
+                created.lockoutEnabled(),
+                created.lockoutEnd(),
+                created.accessFailedCount(),
+                created.twoFactorEnabled()));
+    return jdbc.get().users().findById(created.id()).orElse(created);
+  }
+
+  private static ResponseEntity<AdminDtos.UserDto> createdUser(IdentityUser user) {
+    return ResponseEntity.created(URI.create("/api/Users/" + user.id())).body(AdminDtos.fromUser(user));
   }
 
   @PutMapping("/{id}")
@@ -138,6 +195,22 @@ public class UsersController {
     return ResponseEntity.noContent().build();
   }
 
+  /** Skoruba {@code POST api/Users/ChangePassword} body is userId + password + confirmPassword. */
+  @PostMapping("/ChangePassword")
+  public ResponseEntity<?> changePasswordByUser(@RequestBody ChangePasswordRequest body) {
+    if (body == null || body.userId() == null || body.userId().isBlank()) {
+      return ApiResponses.validation("UserId", "userId is required");
+    }
+    if (body.confirmPassword() != null && !body.confirmPassword().equals(body.password())) {
+      return ApiResponses.validation("Password", "password and confirmPassword do not match");
+    }
+    ResponseEntity<?> result = changePassword(body.userId(), body);
+    if (result.getStatusCode().is2xxSuccessful()) {
+      return ResponseEntity.ok().build();
+    }
+    return result;
+  }
+
   @PostMapping("/{id}/ChangePassword")
   public ResponseEntity<?> changePassword(
       @PathVariable String id, @RequestBody ChangePasswordRequest body) {
@@ -149,6 +222,19 @@ public class UsersController {
     }
     jdbc.get().users().setPasswordHash(id, hasher.hash(body.password()));
     return ResponseEntity.noContent().build();
+  }
+
+  /** Skoruba {@code POST api/Users/Roles} expects HTTP 200 and userId + roleId in the body. */
+  @PostMapping("/Roles")
+  public ResponseEntity<?> addRoleForUser(@RequestBody RoleAssignmentRequest body) {
+    if (body == null || body.userId() == null || body.userId().isBlank()) {
+      return ApiResponses.badRequest("userId is required");
+    }
+    ResponseEntity<?> result = addRole(body.userId(), body);
+    if (result.getStatusCode().is2xxSuccessful()) {
+      return ResponseEntity.ok().build();
+    }
+    return result;
   }
 
   @PostMapping("/{id}/Roles")
@@ -179,5 +265,25 @@ public class UsersController {
     }
     jdbc.get().users().removeRole(id, roleId);
     return ResponseEntity.noContent().build();
+  }
+
+  /** Skoruba {@code POST api/Users/Claims} assigns one claim (for example position) to userId. */
+  @PostMapping("/Claims")
+  public ResponseEntity<?> addClaim(@RequestBody UserClaimWrite body) {
+    if (jdbc.isEmpty()) {
+      return ApiResponses.noDatabase();
+    }
+    if (body == null
+        || body.userId() == null
+        || body.userId().isBlank()
+        || body.claimType() == null
+        || body.claimType().isBlank()) {
+      return ApiResponses.badRequest("userId and claimType are required");
+    }
+    if (jdbc.get().users().findById(body.userId()).isEmpty()) {
+      return ApiResponses.notFound();
+    }
+    jdbc.get().users().addClaim(body.userId(), body.claimType(), body.claimValue());
+    return ResponseEntity.ok().build();
   }
 }

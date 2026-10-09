@@ -28,7 +28,9 @@ public record ClientConfiguration(
     List<String> corsOrigins,
     List<ClientClaim> claims,
     List<ClientProperty> properties,
-    List<ClientSecretValue> secrets) {
+    List<ClientSecretValue> secrets,
+    boolean alwaysSendClientClaims,
+    String clientClaimsPrefix) {
 
   public record ClientSecretValue(
       int id,
@@ -90,6 +92,8 @@ public record ClientConfiguration(
         List.of(),
         List.of(),
         List.of(),
-        secrets);
+        secrets,
+        false,
+        "client_");
   }
 }

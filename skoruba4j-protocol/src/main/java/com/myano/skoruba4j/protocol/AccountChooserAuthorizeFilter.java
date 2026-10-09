@@ -17,16 +17,30 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * For browser {@code /connect/authorize}, send an authenticated user through {@code /login/choose}
+ * For browser {@code /connect/authorize}, send an already-SSO user through {@code /login/choose}
  * once before issuing a code (unless {@code prompt=none}).
+ *
+ * <p>Skip after a password/external login in this session (user already picked the account). Skip
+ * when {@code idserver.login.account-chooser=false}. Honour {@code prompt=select_account} / {@code
+ * prompt=login} even after a fresh login.
  */
 public final class AccountChooserAuthorizeFilter extends OncePerRequestFilter {
+  private final boolean enabled;
+
+  /** Enabled by default (Google-style picker). */
+  public AccountChooserAuthorizeFilter() {
+    this(true);
+  }
+
+  public AccountChooserAuthorizeFilter(boolean enabled) {
+    this.enabled = enabled;
+  }
 
   @Override
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
-    if (!shouldOfferChooser(request)) {
+    if (!enabled || !shouldOfferChooser(request)) {
       filterChain.doFilter(request, response);
       return;
     }
@@ -36,6 +50,12 @@ public final class AccountChooserAuthorizeFilter extends OncePerRequestFilter {
       return;
     }
     HttpSession session = request.getSession(false);
+    String prompt = request.getParameter("prompt");
+    boolean forceChooser = AccountChooser.wantsSelectAccount(prompt);
+    if (!forceChooser && AccountChooser.consumeFreshLogin(session)) {
+      filterChain.doFilter(request, response);
+      return;
+    }
     if (AccountChooser.isApproved(session, returnUrl)) {
       AccountChooser.clearApproved(session);
       filterChain.doFilter(request, response);

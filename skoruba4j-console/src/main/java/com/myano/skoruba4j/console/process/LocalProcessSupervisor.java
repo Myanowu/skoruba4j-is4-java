@@ -69,10 +69,7 @@ public final class LocalProcessSupervisor {
     command.add("-Didserver.db.pool-size=" + LocalConfigFile.clampPool(runtime.dbPoolSize));
     // Force issuer on the command line so STS token iss and Admin OIDC validation stay aligned
     // (YAML import / local-profile precedence otherwise drifts — invalid_id_token / iss).
-    String issuer =
-        form.issuerUri == null || form.issuerUri.isBlank()
-            ? LocalConfigFile.DEFAULT_ISSUER_URI
-            : form.issuerUri.trim().replaceAll("/$", "");
+    String issuer = LocalConfigFile.canonicalizeIssuerUri(form.issuerUri);
     command.add("-Didserver.issuer-uri=" + issuer);
     // Force Admin sign-in keys over application-local.yml (e.g. role mismatch vs demo MyRole).
     if ("skoruba4j-admin".equals(module) || "skoruba4j-admin-api".equals(module)) {

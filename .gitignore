@@ -1,8 +1,10 @@
 application-local.yml
 application-local.yaml
-# legacy private profile name (pre-rename)
-application-elcss.yml
-application-elcss.yaml
+# Private Spring profiles. Public tree keeps application.yml and application-oss.yml only.
+application-*.yml
+application-*.yaml
+!application-oss.yml
+!application-oss.yaml
 **/*.pfx
 **/*.p12
 secrets/
@@ -36,4 +38,6 @@ data/
 dist/
 # Local agent notes, plans, and scratch. Not part of the public tree.
 .cursor/
+# Protocol tests that name organization API resources. Keep local; do not publish.
+skoruba4j-protocol/src/test/java/com/myano/skoruba4j/protocol/Is4AccessTokenClaimsTest.java
 *.log

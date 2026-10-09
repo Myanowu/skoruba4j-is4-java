@@ -9,6 +9,7 @@ import java.io.IOException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
@@ -17,21 +18,29 @@ import org.springframework.security.web.savedrequest.SavedRequest;
 
 /**
  * Resume {@code /connect/authorize} after login (IS4 ReturnUrl). Fresh login skips the account
- * chooser (marks the ReturnUrl approved). Direct STS login stays on {@code /}.
+ * chooser (marks the ReturnUrl approved). After RP logout without a saved authorize request, honour
+ * {@link RpResume} so the browser returns to the RP {@code /login} instead of STS home.
  */
 public final class Is4LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
   private final SecurityContextRepository securityContextRepository;
+  private final RegisteredClientRepository clients;
   private RequestCache requestCache;
 
   public Is4LoginSuccessHandler() {
-    this(new HttpSessionSecurityContextRepository());
+    this(new HttpSessionSecurityContextRepository(), null);
   }
 
   public Is4LoginSuccessHandler(SecurityContextRepository securityContextRepository) {
+    this(securityContextRepository, null);
+  }
+
+  public Is4LoginSuccessHandler(
+      SecurityContextRepository securityContextRepository, RegisteredClientRepository clients) {
     this.securityContextRepository =
         securityContextRepository == null
             ? new HttpSessionSecurityContextRepository()
             : securityContextRepository;
+    this.clients = clients;
     setDefaultTargetUrl("/");
     setAlwaysUseDefaultTargetUrl(false);
   }
@@ -49,6 +58,7 @@ public final class Is4LoginSuccessHandler extends SimpleUrlAuthenticationSuccess
     context.setAuthentication(authentication);
     SecurityContextHolder.setContext(context);
     securityContextRepository.saveContext(context, request, response);
+    AccountChooser.markFreshLogin(request.getSession(true));
     String target = determineTargetUrl(request, response);
     if (Is4ReturnUrls.isSafe(target)) {
       AccountChooser.markApproved(request.getSession(true), target);
@@ -72,7 +82,11 @@ public final class Is4LoginSuccessHandler extends SimpleUrlAuthenticationSuccess
       RpResume.clear(response);
       return saved.getRedirectUrl();
     }
+    String resume = RpResume.targetForClientIds(clients, RpResume.read(request));
     RpResume.clear(response);
+    if (resume != null) {
+      return resume;
+    }
     return "/";
   }
 }

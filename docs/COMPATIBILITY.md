@@ -13,8 +13,8 @@ Update this file in the same change as code. Do not mark **Y** without a test.
 | `/connect/authorize` | Y | Y | + PKCE |
 | `/connect/token` | Y | Y | |
 | `/connect/userinfo` | Y | Y | |
-| `/connect/introspect` | Y | P | |
-| `/connect/revocation` | Y | P | |
+| `/connect/introspect` | Y | Y | `StsIntrospectRevocationTest` |
+| `/connect/revocation` | Y | Y | `StsIntrospectRevocationTest` |
 | `/connect/endsession` | Y | Y | `idserver.logout.end-session=compatible` (default) or `strict` (expired token → re-login, no refresh) |
 | `/connect/deviceauthorization` | Y | P | Phase 2 |
 | `/connect/mtls/*` | P | N | |
@@ -25,11 +25,11 @@ Update this file in the same change as code. Do not mark **Y** without a test.
 |-------|---------|
 | authorization_code + PKCE | Y |
 | refresh_token / `offline_access` | Y |
-| client_credentials | P |
+| client_credentials | Y | `StsIntrospectRevocationTest` (token + introspect) |
 | `delegation` (IS4 extension) | P | converter + provider path; advertise only when `Clients` has the grant |
 | device_code | P |
 | implicit | N |
-| resource owner password | P | client must allow `password` grant; Admin `sts-password` login uses this |
+| resource owner password | Y | client must allow `password`; Admin `sts-password` uses it; `StsPasswordGrantTest` |
 
 ## Token behaviour
 

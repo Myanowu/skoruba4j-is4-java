@@ -8,7 +8,8 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 
 /**
  * After RP logout the STS session is gone, so {@code SavedRequest} cannot resume authorize. Remember
- * the client so the next form login returns to that RP instead of the STS home page.
+ * the client so the next form login (or an immediate post-logout redirect) returns to that RP's
+ * {@code /login} and restarts OIDC — not the STS home page.
  */
 public final class RpResume {
   public static final String COOKIE = "idserver.rp_client";
@@ -51,6 +52,10 @@ public final class RpResume {
     response.addCookie(cookie);
   }
 
+  /**
+   * Prefer the origin that hosts {@code /signin-oidc}, then {@code /login} so the RP restarts the
+   * OIDC challenge (admin.web Gatsby proxies {@code /login}; skoruba Admin serves it too).
+   */
   public static String target(RegisteredClient client) {
     if (client == null) {
       return null;
@@ -61,12 +66,12 @@ public final class RpResume {
       if (origin == null) {
         continue;
       }
-      String home = origin + "/";
+      String login = origin + "/login";
       if (redirect.contains("/signin-oidc")) {
-        return home;
+        return login;
       }
       if (fallback == null) {
-        fallback = home;
+        fallback = login;
       }
     }
     return fallback;

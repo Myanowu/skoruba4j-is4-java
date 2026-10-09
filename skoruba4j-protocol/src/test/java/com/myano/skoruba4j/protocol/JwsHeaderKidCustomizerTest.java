@@ -21,8 +21,13 @@ class JwsHeaderKidCustomizerTest {
             .issuer("https://localhost:5051")
             .issuedAt(now)
             .expiresAt(now.plusSeconds(60));
-    JwtEncodingContext context = JwtEncodingContext.with(header, claims).build();
+    JwtEncodingContext context =
+        JwtEncodingContext.with(header, claims)
+            .tokenType(org.springframework.security.oauth2.server.authorization.OAuth2TokenType.ACCESS_TOKEN)
+            .build();
     JwsHeaderKidCustomizer.apply(context, "expected-kid");
-    assertEquals("expected-kid", header.build().getKeyId());
+    JwsHeader built = header.build();
+    assertEquals("expected-kid", built.getKeyId());
+    assertEquals("JWT", built.getType());
   }
 }

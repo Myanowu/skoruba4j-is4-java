@@ -51,7 +51,7 @@ Status matches [COMPATIBILITY.md](COMPATIBILITY.md): **Y** ships with tests; **P
 | ID Token (JWT) | Y |
 | UserInfo `/connect/userinfo` | Y |
 | RP-Initiated Logout `/connect/endsession` | Y |
-| Token introspection `/connect/introspect` | P |
+| Token introspection `/connect/introspect` | Y |
 | Session Management / Front-channel logout extras | not a Y cell |
 
 ### OAuth 2.0
@@ -61,12 +61,12 @@ Status matches [COMPATIBILITY.md](COMPATIBILITY.md): **Y** ships with tests; **P
 | `authorization_code` + PKCE | Y |
 | `refresh_token` / `offline_access` | Y |
 | `/connect/token` | Y |
-| `/connect/revocation` | P |
-| `client_credentials` | P |
+| `/connect/revocation` | Y |
+| `client_credentials` | Y |
 | Device Authorization `/connect/deviceauthorization` | P |
 | IS4 extension `grant_type=delegation` | P |
 | Implicit | N |
-| Resource Owner Password | P | client must allow `password`; Admin `sts-password` uses it |
+| Resource Owner Password | Y | client must allow `password`; Admin `sts-password` uses it; `StsPasswordGrantTest` |
 | mTLS `/connect/mtls/*` | N |
 
 ### Tokens and identity

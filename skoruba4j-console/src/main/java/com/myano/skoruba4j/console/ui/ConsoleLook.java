@@ -226,14 +226,16 @@ public final class ConsoleLook {
     return label;
   }
 
-  static void addRow(JPanel form, GridBagConstraints gc, String label, java.awt.Component field) {
+  /** Returns the left-column label so callers can rebind text on locale change. */
+  static JLabel addRow(JPanel form, GridBagConstraints gc, String label, java.awt.Component field) {
     gc.gridy++;
     gc.gridx = 0;
     gc.weightx = 0;
     gc.gridwidth = 1;
     gc.fill = GridBagConstraints.NONE;
     gc.anchor = GridBagConstraints.WEST;
-    form.add(fieldLabel(label), gc);
+    JLabel left = fieldLabel(label);
+    form.add(left, gc);
     gc.gridx = 1;
     gc.weightx = 1;
     gc.fill = GridBagConstraints.HORIZONTAL;
@@ -241,27 +243,34 @@ public final class ConsoleLook {
       jc.setFont(ui());
     }
     form.add(field, gc);
+    return left;
   }
 
-  static void addNote(JPanel form, GridBagConstraints gc, String text) {
+  /** HTML wrapper used by settings notes (CJK-friendly fonts). */
+  static String noteHtml(String text) {
+    return "<html><body style='width:620px;font-family:\"Microsoft JhengHei UI\",\"Microsoft YaHei UI\",SansSerif;font-size:11px;color:#6B5558'>"
+        + (text == null ? "" : text)
+        + "</body></html>";
+  }
+
+  /** Returns the note label so callers can rebind text on locale change. */
+  static JLabel addNote(JPanel form, GridBagConstraints gc, String text) {
     gc.gridy++;
     gc.gridx = 0;
     gc.gridwidth = 2;
     gc.weightx = 1;
     gc.fill = GridBagConstraints.HORIZONTAL;
-    JLabel note =
-        new JLabel(
-            "<html><body style='width:620px;font-family:\"Microsoft JhengHei UI\",\"Microsoft YaHei UI\",SansSerif;font-size:11px;color:#6B5558'>"
-                + text
-                + "</body></html>");
+    JLabel note = new JLabel(noteHtml(text));
     note.setFont(uiSmall());
     note.setForeground(MUTED);
     note.setBorder(new EmptyBorder(0, 0, 2, 0));
     form.add(note, gc);
     gc.gridwidth = 1;
+    return note;
   }
 
-  static void addSection(JPanel form, GridBagConstraints gc, String title) {
+  /** Returns the section title label so callers can rebind text on locale change. */
+  static JLabel addSection(JPanel form, GridBagConstraints gc, String title) {
     gc.gridy++;
     gc.gridx = 0;
     gc.gridwidth = 2;
@@ -277,6 +286,7 @@ public final class ConsoleLook {
             new EmptyBorder(first ? 0 : 8, 0, 4, 0)));
     form.add(section, gc);
     gc.gridwidth = 1;
+    return section;
   }
 
   static JToggleButton navButton(String text) {

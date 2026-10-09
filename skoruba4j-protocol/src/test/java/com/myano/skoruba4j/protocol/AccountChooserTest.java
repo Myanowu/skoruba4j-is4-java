@@ -31,6 +31,17 @@ class AccountChooserTest {
   }
 
   @Test
+  void freshLoginIsConsumedOnce() {
+    MockHttpSession session = new MockHttpSession();
+    assertFalse(AccountChooser.consumeFreshLogin(session));
+    AccountChooser.markFreshLogin(session);
+    assertTrue(AccountChooser.isFreshLogin(session));
+    assertTrue(AccountChooser.consumeFreshLogin(session));
+    assertFalse(AccountChooser.isFreshLogin(session));
+    assertFalse(AccountChooser.consumeFreshLogin(session));
+  }
+
+  @Test
   void chooseRedirectEncodesReturnUrl() {
     String redirect =
         AccountChooser.chooseRedirect(

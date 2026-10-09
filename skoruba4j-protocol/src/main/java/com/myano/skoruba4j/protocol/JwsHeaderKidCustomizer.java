@@ -11,5 +11,6 @@ public final class JwsHeaderKidCustomizer {
       return;
     }
     context.getJwsHeader().keyId(keyId);
+    Is4AccessTokenClaims.applyJwtType(context);
   }
 }

@@ -11,8 +11,11 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import javax.sql.DataSource;
 
@@ -23,6 +26,48 @@ public final class IdentityStoreAdmin {
   private IdentityStoreAdmin() {}
 
   public record TableStatus(String name, boolean present, int rows) {}
+
+  public record ColumnDef(
+      int ordinal,
+      String name,
+      String typeName,
+      int size,
+      int scale,
+      boolean nullable,
+      boolean primaryKey,
+      boolean autoIncrement,
+      String defaultValue) {
+    public String typeDisplay() {
+      String type = typeName == null || typeName.isBlank() ? "?" : typeName.trim();
+      if (type.indexOf('(') >= 0) {
+        return type;
+      }
+      if (size > 0 && scale > 0) {
+        return type + "(" + size + "," + scale + ")";
+      }
+      if (size > 0 && looksSized(type)) {
+        return type + "(" + size + ")";
+      }
+      return type;
+    }
+
+    private static boolean looksSized(String type) {
+      String u = type.toUpperCase(Locale.ROOT);
+      return u.contains("CHAR")
+          || u.contains("BINARY")
+          || u.contains("TEXT")
+          || u.contains("BLOB")
+          || "DECIMAL".equals(u)
+          || "NUMERIC".equals(u)
+          || "NUMBER".equals(u);
+    }
+  }
+
+  public record TableSchema(String table, List<ColumnDef> columns, String error) {
+    public static TableSchema fail(String table, String error) {
+      return new TableSchema(table == null ? "" : table, List.of(), error == null ? "" : error);
+    }
+  }
 
   public record Preview(
       String table,
@@ -197,6 +242,179 @@ public final class IdentityStoreAdmin {
       return Preview.fail(name, n, off, message(e));
     }
   }
+
+  /** Column names, types, sizes, nullability, PK — read-only, catalog tables only. */
+  public static TableSchema describe(
+      DataSource dataSource, DbProvider provider, TableStyle style, String table) {
+    if (dataSource == null) {
+      return TableSchema.fail(table, "No data source.");
+    }
+    String name = resolveExpectedTable(style, table);
+    if (name == null) {
+      String raw = table == null ? "" : table.trim();
+      return TableSchema.fail(
+          raw, raw.isBlank() ? "No table selected." : "Table is not in the identity catalog.");
+    }
+    SqlDialect dialect = new SqlDialect(provider);
+    try (Connection connection = dataSource.getConnection()) {
+      if (!tablePresent(connection, name)) {
+        return TableSchema.fail(name, "Table not present in this database.");
+      }
+      Set<String> pks = primaryKeyNames(connection, name);
+      Map<String, ColumnExtras> extras = columnExtras(connection, name);
+      String sql = "SELECT * FROM " + dialect.quote(name) + " WHERE 1=0";
+      try (PreparedStatement ps = connection.prepareStatement(sql);
+          ResultSet rs = ps.executeQuery()) {
+        ResultSetMetaData meta = rs.getMetaData();
+        int cols = meta.getColumnCount();
+        List<ColumnDef> columns = new ArrayList<>(cols);
+        for (int i = 1; i <= cols; i++) {
+          String label = meta.getColumnLabel(i);
+          if (label == null || label.isBlank()) {
+            label = meta.getColumnName(i);
+          }
+          if (label == null || label.isBlank()) {
+            label = "c" + i;
+          }
+          String typeName = meta.getColumnTypeName(i);
+          int size = meta.getPrecision(i);
+          int scale = meta.getScale(i);
+          int nullableFlag = meta.isNullable(i);
+          boolean nullable = nullableFlag != ResultSetMetaData.columnNoNulls;
+          boolean auto = meta.isAutoIncrement(i);
+          String def = "";
+          ColumnExtras extra = extras.get(label.toLowerCase(Locale.ROOT));
+          if (extra != null) {
+            if (typeName == null || typeName.isBlank()) {
+              typeName = extra.typeName;
+            }
+            if (size <= 0 && extra.size > 0) {
+              size = extra.size;
+            }
+            if (scale <= 0 && extra.scale > 0) {
+              scale = extra.scale;
+            }
+            if (nullableFlag == ResultSetMetaData.columnNullableUnknown) {
+              nullable = extra.nullable;
+            }
+            auto = auto || extra.autoIncrement;
+            def = extra.defaultValue == null ? "" : extra.defaultValue;
+          }
+          boolean pk = false;
+          for (String key : pks) {
+            if (label.equalsIgnoreCase(key)) {
+              pk = true;
+              break;
+            }
+          }
+          columns.add(
+              new ColumnDef(
+                  i,
+                  label,
+                  typeName == null ? "" : typeName,
+                  size,
+                  scale,
+                  nullable,
+                  pk,
+                  auto,
+                  def));
+        }
+        return new TableSchema(name, List.copyOf(columns), "");
+      }
+    } catch (SQLException e) {
+      return TableSchema.fail(name, message(e));
+    }
+  }
+
+  private static String resolveExpectedTable(TableStyle style, String table) {
+    String name = table == null ? "" : table.trim();
+    if (name.isBlank()) {
+      return null;
+    }
+    for (String expected : expectedTables(style)) {
+      if (expected.equalsIgnoreCase(name)) {
+        return expected;
+      }
+    }
+    return null;
+  }
+
+  private static Set<String> primaryKeyNames(Connection connection, String table) throws SQLException {
+    LinkedHashSet<String> keys = new LinkedHashSet<>();
+    DatabaseMetaData meta = connection.getMetaData();
+    try (ResultSet rs = meta.getPrimaryKeys(connection.getCatalog(), null, table)) {
+      while (rs.next()) {
+        String col = rs.getString("COLUMN_NAME");
+        if (col != null && !col.isBlank()) {
+          keys.add(col);
+        }
+      }
+    }
+    if (keys.isEmpty()) {
+      try (ResultSet rs = meta.getPrimaryKeys(null, null, table)) {
+        while (rs.next()) {
+          String col = rs.getString("COLUMN_NAME");
+          if (col != null && !col.isBlank()) {
+            keys.add(col);
+          }
+        }
+      }
+    }
+    if (keys.isEmpty()) {
+      try (ResultSet rs = meta.getPrimaryKeys(connection.getCatalog(), "dbo", table)) {
+        while (rs.next()) {
+          String col = rs.getString("COLUMN_NAME");
+          if (col != null && !col.isBlank()) {
+            keys.add(col);
+          }
+        }
+      }
+    }
+    return keys;
+  }
+
+  private static Map<String, ColumnExtras> columnExtras(Connection connection, String table)
+      throws SQLException {
+    LinkedHashMap<String, ColumnExtras> extras = new LinkedHashMap<>();
+    DatabaseMetaData meta = connection.getMetaData();
+    fillColumnExtras(extras, meta.getColumns(connection.getCatalog(), null, table, null));
+    if (extras.isEmpty()) {
+      fillColumnExtras(extras, meta.getColumns(null, null, table, null));
+    }
+    if (extras.isEmpty()) {
+      fillColumnExtras(extras, meta.getColumns(connection.getCatalog(), "dbo", table, null));
+    }
+    return extras;
+  }
+
+  private static void fillColumnExtras(Map<String, ColumnExtras> extras, ResultSet rs)
+      throws SQLException {
+    try (rs) {
+      while (rs.next()) {
+        String name = rs.getString("COLUMN_NAME");
+        if (name == null || name.isBlank()) {
+          continue;
+        }
+        extras.put(
+            name.toLowerCase(Locale.ROOT),
+            new ColumnExtras(
+                rs.getString("TYPE_NAME"),
+                rs.getInt("COLUMN_SIZE"),
+                rs.getInt("DECIMAL_DIGITS"),
+                rs.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls,
+                "YES".equalsIgnoreCase(rs.getString("IS_AUTOINCREMENT")),
+                rs.getString("COLUMN_DEF")));
+      }
+    }
+  }
+
+  private record ColumnExtras(
+      String typeName,
+      int size,
+      int scale,
+      boolean nullable,
+      boolean autoIncrement,
+      String defaultValue) {}
 
   static List<String> columnNames(Connection connection, SqlDialect dialect, String table)
       throws SQLException {

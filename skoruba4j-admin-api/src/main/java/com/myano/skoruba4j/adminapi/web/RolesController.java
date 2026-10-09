@@ -7,7 +7,6 @@ import com.myano.skoruba4j.domain.PageQuery;
 import com.myano.skoruba4j.domain.PageResult;
 import com.myano.skoruba4j.domain.identity.IdentityRole;
 import com.myano.skoruba4j.domain.jdbc.JdbcRepositories;
-import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -59,6 +58,7 @@ public class RolesController {
         .orElseGet(ApiResponses::notFound);
   }
 
+  /** Skoruba {@code POST api/Roles} returns 201 and {@code id} plus {@code name}. */
   @PostMapping
   public ResponseEntity<?> create(@RequestBody RoleUpsert body) {
     if (jdbc.isEmpty()) {
@@ -67,8 +67,15 @@ public class RolesController {
     if (body == null || body.name() == null || body.name().isBlank()) {
       return ApiResponses.badRequest("name is required");
     }
+    var existing = jdbc.get().roles().findByNormalizedName(body.name());
+    if (existing.isPresent()) {
+      IdentityRole role = existing.get();
+      return ResponseEntity.created(java.net.URI.create("/api/Roles/" + role.id()))
+          .body(AdminDtos.fromRole(role));
+    }
     String id = jdbc.get().roles().insert(body.name());
-    return ResponseEntity.ok(Map.of("id", id));
+    return ResponseEntity.created(java.net.URI.create("/api/Roles/" + id))
+        .body(new AdminDtos.RoleDto(id, body.name()));
   }
 
   @PutMapping("/{id}")

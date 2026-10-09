@@ -1,5 +1,7 @@
 package com.myano.skoruba4j.adminapi.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.myano.skoruba4j.domain.configstore.ApiResourceSummary;
 import com.myano.skoruba4j.domain.configstore.ClientConfiguration;
 import com.myano.skoruba4j.domain.configstore.ClientSummary;
@@ -49,23 +51,46 @@ public final class AdminDtos {
 
   public record SecretCreate(String type, String value) {}
 
-  public record UsersDto(int pageSize, int totalCount, int page, List<UserDto> users) {}
+  public record UsersDto(int pageSize, int totalCount, int page, List<UserDto> users) {
+    public UsersDto {
+      users = users == null ? List.of() : users;
+    }
+  }
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public record UserDto(
       String id,
       String userName,
       String email,
       boolean emailConfirmed,
       boolean lockoutEnabled,
-      boolean twoFactorEnabled) {}
+      boolean twoFactorEnabled,
+      String phoneNumber,
+      boolean phoneNumberConfirmed,
+      int accessFailedCount,
+      Instant lockoutEnd) {}
 
-  public record UserUpsert(String userName, String email, String password, Boolean emailConfirmed, Boolean lockoutEnabled) {}
+  /** Skoruba IdentityUserDto POST body; extra flags are ignored on create. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record UserUpsert(
+      String userName,
+      String email,
+      String password,
+      Boolean emailConfirmed,
+      Boolean lockoutEnabled,
+      String phoneNumber) {}
 
-  public record ChangePasswordRequest(String password) {}
+  public record ChangePasswordRequest(String password, String userId, String confirmPassword) {}
 
-  public record RoleAssignmentRequest(String roleId, String roleName) {}
+  public record RoleAssignmentRequest(String roleId, String roleName, String userId) {}
 
-  public record RolesDto(int pageSize, int totalCount, int page, List<RoleDto> roles) {}
+  public record UserClaimWrite(String userId, String claimType, String claimValue) {}
+
+  public record RolesDto(int pageSize, int totalCount, int page, List<RoleDto> roles) {
+    public RolesDto {
+      roles = roles == null ? List.of() : roles;
+    }
+  }
 
   public record RoleDto(String id, String name) {}
 
@@ -142,11 +167,15 @@ public final class AdminDtos {
   public static UserDto fromUser(IdentityUser u) {
     return new UserDto(
         u.id(),
-        u.userName(),
-        u.email(),
+        u.userName() == null ? "" : u.userName(),
+        u.email() == null ? "" : u.email(),
         u.emailConfirmed(),
         u.lockoutEnabled(),
-        u.twoFactorEnabled());
+        u.twoFactorEnabled(),
+        u.phoneNumber() == null ? "" : u.phoneNumber(),
+        u.phoneNumberConfirmed(),
+        u.accessFailedCount(),
+        u.lockoutEnd());
   }
 
   public static RoleDto fromRole(IdentityRole r) {

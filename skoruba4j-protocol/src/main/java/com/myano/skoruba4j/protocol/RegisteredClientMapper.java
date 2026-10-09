@@ -4,6 +4,7 @@ import com.myano.skoruba4j.domain.configstore.ClientConfiguration;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.stream.Collectors;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
@@ -17,6 +18,7 @@ public final class RegisteredClientMapper {
     return toRegisteredClient(client, now, EndSessionMode.COMPATIBLE);
   }
 
+  /** Maps an IS4 client row onto a SAS registered client, including every current secret. */
   public static RegisteredClient toRegisteredClient(
       ClientConfiguration client, Instant now, EndSessionMode mode) {
     RegisteredClient.Builder builder =
@@ -30,12 +32,10 @@ public final class RegisteredClientMapper {
     if (client.requireClientSecret()) {
       builder.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC);
       builder.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST);
-      client.secrets().stream()
-          .filter(s -> !s.isExpired(now))
-          .map(ClientConfiguration.ClientSecretValue::value)
-          .filter(v -> v != null && !v.isBlank())
-          .findFirst()
-          .ifPresent(builder::clientSecret);
+      String secrets = joinSecrets(client, now);
+      if (!secrets.isEmpty()) {
+        builder.clientSecret(secrets);
+      }
     } else {
       builder.clientAuthenticationMethod(ClientAuthenticationMethod.NONE);
     }
@@ -110,6 +110,21 @@ public final class RegisteredClientMapper {
       return withoutRefresh(mapped);
     }
     return mapped;
+  }
+
+  /**
+   * Every non-expired SharedSecret, joined for {@link Is4ClientSecretPasswordEncoder}. The first
+   * row is not special: callers may rotate secrets and keep the previous hash.
+   */
+  static String joinSecrets(ClientConfiguration client, Instant now) {
+    if (client.secrets() == null) {
+      return "";
+    }
+    return client.secrets().stream()
+        .filter(s -> s != null && !s.isExpired(now))
+        .map(ClientConfiguration.ClientSecretValue::value)
+        .filter(v -> v != null && !v.isBlank())
+        .collect(Collectors.joining(Is4ClientSecretPasswordEncoder.SEPARATOR));
   }
 
   /** Strict mode: access-token expiry ends the grant; the client must authenticate again. */

@@ -44,6 +44,23 @@ public class FormLoginSecurityConfiguration {
   }
 
   /**
+   * Form / ROPC password verify (ASP.NET PBKDF2 + optional Control debug password). Not the OAuth
+   * client-secret encoder.
+   */
+  @Bean
+  public IdentitySpringPasswordEncoder identityLoginPasswordEncoder(
+      IdentityPasswordHasher hasher, IdserverProperties props) {
+    IdentitySpringPasswordEncoder encoder =
+        IdentitySpringPasswordEncoder.withOptionalDebug(
+            hasher, props.debugLoginEnabled(), props.debugLoginPassword());
+    if (encoder.debugLoginEnabled()) {
+      log.warn(
+          "STS login.debug-mode is ON: any existing user can sign in with the Control debug password. Turn off before production.");
+    }
+    return encoder;
+  }
+
+  /**
    * Identity-user AuthenticationManager (ASP.NET PBKDF2). Marked {@link Primary} so password-grant
    * injection does not pick Boot's UserDetailsService manager (which uses the client-secret {@link
    * org.springframework.security.crypto.password.PasswordEncoder} bean and always fails ROPC).
@@ -51,8 +68,8 @@ public class FormLoginSecurityConfiguration {
   @Bean(name = "stsUserAuthenticationManager")
   @Primary
   public AuthenticationManager authenticationManager(
-      UserDetailsService userDetailsService, IdentityPasswordHasher hasher) {
-    return formLoginAuthenticationManager(userDetailsService, hasher);
+      UserDetailsService userDetailsService, IdentitySpringPasswordEncoder identityLoginPasswordEncoder) {
+    return formLoginAuthenticationManager(userDetailsService, identityLoginPasswordEncoder);
   }
 
   @Bean
@@ -65,12 +82,14 @@ public class FormLoginSecurityConfiguration {
       IdserverProperties props,
       ExternalIdentityLinker linker,
       IdentityUserDetailsService identityUserDetailsService,
-      IdentityPasswordHasher hasher)
+      IdentitySpringPasswordEncoder identityLoginPasswordEncoder)
       throws Exception {
     // Register Dao provider on the filter-chain builder (not a shared AuthenticationManager).
     // Setting http.authenticationManager(formOnly) drops oauth2Login's
     // OAuth2LoginAuthenticationProvider → ProviderNotFoundException on Google callback.
-    http.authenticationProvider(identityDaoAuthenticationProvider(identityUserDetailsService, hasher))
+    http.authenticationProvider(
+            identityDaoAuthenticationProvider(
+                identityUserDetailsService, identityLoginPasswordEncoder))
         .authorizeHttpRequests(
             authorize ->
                 authorize
@@ -115,7 +134,8 @@ public class FormLoginSecurityConfiguration {
                 form.loginPage("/login")
                     .loginProcessingUrl("/login")
                     .successHandler(
-                        loginSuccessHandler(requestCache, securityContextRepository))
+                        loginSuccessHandler(
+                            requestCache, securityContextRepository, registeredClientRepository))
                     .failureHandler(
                         (request, response, exception) -> {
                           String location = "/login?error";
@@ -166,20 +186,23 @@ public class FormLoginSecurityConfiguration {
   }
 
   private static AuthenticationManager formLoginAuthenticationManager(
-      UserDetailsService userDetailsService, IdentityPasswordHasher hasher) {
-    return new ProviderManager(identityDaoAuthenticationProvider(userDetailsService, hasher));
+      UserDetailsService userDetailsService, IdentitySpringPasswordEncoder encoder) {
+    return new ProviderManager(identityDaoAuthenticationProvider(userDetailsService, encoder));
   }
 
   private static DaoAuthenticationProvider identityDaoAuthenticationProvider(
-      UserDetailsService userDetailsService, IdentityPasswordHasher hasher) {
+      UserDetailsService userDetailsService, IdentitySpringPasswordEncoder encoder) {
     DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
-    provider.setPasswordEncoder(new IdentitySpringPasswordEncoder(hasher));
+    provider.setPasswordEncoder(encoder);
     return provider;
   }
 
   private static Is4LoginSuccessHandler loginSuccessHandler(
-      RequestCache requestCache, SecurityContextRepository securityContextRepository) {
-    Is4LoginSuccessHandler handler = new Is4LoginSuccessHandler(securityContextRepository);
+      RequestCache requestCache,
+      SecurityContextRepository securityContextRepository,
+      RegisteredClientRepository registeredClientRepository) {
+    Is4LoginSuccessHandler handler =
+        new Is4LoginSuccessHandler(securityContextRepository, registeredClientRepository);
     handler.setRequestCache(requestCache);
     return handler;
   }

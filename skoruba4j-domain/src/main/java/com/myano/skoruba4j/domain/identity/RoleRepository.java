@@ -22,6 +22,12 @@ public final class RoleRepository {
   }
 
   public PageResult<IdentityRole> search(PageQuery query) {
+    if (query.hasSearch()) {
+      var exact = findByNormalizedName(query.searchText());
+      if (exact.isPresent()) {
+        return new PageResult<>(query.page(), query.pageSize(), 1, List.of(exact.get()));
+      }
+    }
     String table = dialect.quote(tables.roles());
     String where = "";
     Object[] args = new Object[0];

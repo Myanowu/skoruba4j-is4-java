@@ -14,6 +14,7 @@ import org.sqlite.SQLiteDataSource;
 public final class CopySqlServerToSqlite {
   private CopySqlServerToSqlite() {}
 
+  /** Copies the SQL Server database named in {@code application-local.yml} into a local SQLite file. */
   public static void main(String[] args) throws Exception {
     Path root = Path.of(args.length > 1 ? args[1] : "").toAbsolutePath().normalize();
     if (root.toString().isBlank() || !Files.isDirectory(root)) {
@@ -24,21 +25,11 @@ public final class CopySqlServerToSqlite {
     }
     Path yaml = root.resolve("skoruba4j-sts").resolve("application-local.yml");
     if (!Files.exists(yaml)) {
-      yaml = root.resolve("skoruba4j-sts").resolve("application-elcss.yml");
-    }
-    if (!Files.exists(yaml)) {
       yaml =
           root.resolve("dist")
               .resolve("tomcat")
               .resolve("skoruba4j-sts")
               .resolve("application-local.yml");
-    }
-    if (!Files.exists(yaml)) {
-      yaml =
-          root.resolve("dist")
-              .resolve("tomcat")
-              .resolve("skoruba4j-sts")
-              .resolve("application-elcss.yml");
     }
     String text = Files.readString(yaml, StandardCharsets.UTF_8);
     String url = yamlValue(text, "url");

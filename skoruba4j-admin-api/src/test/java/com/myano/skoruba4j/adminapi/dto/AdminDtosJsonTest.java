@@ -46,10 +46,75 @@ class AdminDtosJsonTest {
             10,
             1,
             1,
-            List.of(new AdminDtos.UserDto("id-1", "alice", "a@example.com", true, false, false)));
+            List.of(
+                new AdminDtos.UserDto(
+                    "id-1", "alice", "a@example.com", true, false, false, "", false, 0, null)));
     String userJson = mapper.writeValueAsString(users);
     assertTrue(userJson.contains("\"users\""));
     assertTrue(userJson.contains("\"userName\":\"alice\""));
     assertFalse(userJson.contains("passwordHash"));
+  }
+
+  @Test
+  void rolesListAlwaysIncludesRolesArrayForSkorubaClient() throws Exception {
+    ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+    String empty = mapper.writeValueAsString(new AdminDtos.RolesDto(1, 0, 1, List.of()));
+    assertTrue(empty.contains("\"pageSize\":1"));
+    assertTrue(empty.contains("\"totalCount\":0"));
+    assertTrue(empty.contains("\"roles\":[]"));
+
+    String found =
+        mapper.writeValueAsString(
+            new AdminDtos.RolesDto(
+                1, 1, 1, List.of(new AdminDtos.RoleDto("role-id", "4SUser"))));
+    assertTrue(found.contains("\"totalCount\":1"));
+    assertTrue(found.contains("\"id\":\"role-id\""));
+    assertTrue(found.contains("\"name\":\"4SUser\""));
+  }
+
+  @Test
+  void userJsonNeverOmitsEmailOrUserName() throws Exception {
+    ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+    String json =
+        mapper.writeValueAsString(
+            AdminDtos.fromUser(
+                new com.myano.skoruba4j.domain.identity.IdentityUser(
+                    "id-1",
+                    "alice@example.com",
+                    "ALICE@EXAMPLE.COM",
+                    null,
+                    null,
+                    true,
+                    "hash",
+                    "stamp",
+                    false,
+                    null,
+                    0,
+                    false,
+                    null,
+                    false)));
+    assertTrue(json.contains("\"userName\":\"alice@example.com\""));
+    assertTrue(json.contains("\"email\":\"\""));
+    assertTrue(json.contains("\"phoneNumberConfirmed\":false"));
+    assertTrue(json.contains("\"accessFailedCount\":0"));
+    assertFalse(json.contains("\"email\":null"));
+    assertFalse(json.contains("lockoutEnd"));
+  }
+
+  @Test
+  void userUpsertIgnoresSkorubaIdentityUserDtoFlags() throws Exception {
+    ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+    AdminDtos.UserUpsert body =
+        mapper.readValue(
+            """
+            {"userName":"a@b.com","email":"a@b.com","emailConfirmed":true,\
+            "phoneNumber":"1","phoneNumberConfirmed":false,"lockoutEnabled":false,\
+            "twoFactorEnabled":false,"accessFailedCount":0}
+            """,
+            AdminDtos.UserUpsert.class);
+    assertTrue("a@b.com".equals(body.userName()));
+    assertTrue("a@b.com".equals(body.email()));
+    assertTrue(Boolean.TRUE.equals(body.emailConfirmed()));
+    assertTrue("1".equals(body.phoneNumber()));
   }
 }

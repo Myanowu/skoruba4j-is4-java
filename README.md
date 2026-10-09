@@ -33,7 +33,7 @@ HTTPS (5051 / 6061) is a local install option and needs a private keystore. That
 
 `skoruba4j-console` is Swing, not a web app. The window title is **Skoruba4j Control**. The three processes stay independently publishable; Control starts jars on the same machine and polls `/health` for remote nodes.
 
-**Protocols (Y, with tests):** OpenID Connect 1.0 (Discovery, JWKS, Authorization Code + PKCE, ID Token, UserInfo, RP logout) and OAuth 2.0 (`authorization_code`, `refresh_token`). JWT access tokens use `aud` = `ApiResources.Name`. Partial: introspection, revocation, client credentials, device code, resource owner password, IS4 `delegation`. Not in scope: implicit, mTLS. Full matrix: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md), product copy: [docs/ABOUT.md](docs/ABOUT.md).
+**Protocols (Y, with tests):** OpenID Connect 1.0 (Discovery, JWKS, Authorization Code + PKCE, ID Token, UserInfo, RP logout, introspection) and OAuth 2.0 (`authorization_code`, `refresh_token`, revocation, `client_credentials`, resource owner password). JWT access tokens use `aud` = `ApiResources.Name`. Partial: device code, IS4 `delegation`. Not in scope: implicit, mTLS. Full matrix: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md), product copy: [docs/ABOUT.md](docs/ABOUT.md).
 
 Stack: **JDK 21**, Spring Boot 3.5.x, Spring Authorization Server, **JDBC only** (no JPA). Default database is bundled **SQLite** (`data/skoruba4j.sqlite`). SQL Server, PostgreSQL, and MySQL are for an existing IS4 database.
 

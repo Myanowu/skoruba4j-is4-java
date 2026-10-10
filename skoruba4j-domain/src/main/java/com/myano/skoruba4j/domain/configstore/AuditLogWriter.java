@@ -2,12 +2,16 @@ package com.myano.skoruba4j.domain.configstore;
 
 import com.myano.skoruba4j.domain.jdbc.JdbcRepositories;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Best-effort {@code AuditLog} insert. Never throws to callers (missing table / JDBC errors are
- * ignored).
+ * logged at FINE level and counted via {@link AuditFailureMeter} but never propagated).
  */
 public final class AuditLogWriter {
+  private static final Logger LOG = Logger.getLogger(AuditLogWriter.class.getName());
+
   public static final String SOURCE_STS = "skoruba4j-sts";
   public static final String SOURCE_ADMIN = "skoruba4j-admin";
 
@@ -51,8 +55,10 @@ public final class AuditLogWriter {
           "",
           action,
           data);
-    } catch (RuntimeException ignored) {
+    } catch (RuntimeException ex) {
       // Audit must never break login / token / admin flows.
+      LOG.log(Level.FINE, "audit insert failed (event={0}): {1}", new Object[] {event, ex.toString()});
+      AuditFailureMeter.record(ex);
     }
   }
 

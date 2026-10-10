@@ -4,8 +4,10 @@ import com.myano.skoruba4j.adminapi.config.ApiLoginMode;
 import com.myano.skoruba4j.adminapi.config.IdserverProperties;
 import com.myano.skoruba4j.domain.externallogin.ExternalLoginClientSettings;
 import com.myano.skoruba4j.domain.jdbc.JdbcRepositories;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -40,7 +42,8 @@ public class UiLoginController {
   public String login(
       @RequestParam(value = "error", required = false) String error,
       @RequestParam(value = "error_description", required = false) String errorDescription,
-      @RequestParam(value = "denied", required = false) String denied) {
+      @RequestParam(value = "denied", required = false) String denied,
+      HttpServletRequest request) {
     ApiLoginMode mode = props.apiLoginMode();
     String flash = null;
     if (denied != null) {
@@ -59,6 +62,17 @@ public class UiLoginController {
     boolean showSts = mode.usesStsOidc();
     boolean anyExternal = google || microsoft || whatsapp || wechat || showSts;
 
+    // Extract CSRF token from request attribute (set by Spring Security CsrfFilter).
+    String csrfName = "_csrf";
+    String csrfToken = "";
+    String csrfHeaderName = "X-XSRF-TOKEN";
+    Object csrfAttr = request.getAttribute(CsrfToken.class.getName());
+    if (csrfAttr instanceof CsrfToken csrf) {
+      csrfName = csrf.getParameterName();
+      csrfToken = csrf.getToken();
+      csrfHeaderName = csrf.getHeaderName();
+    }
+
     StringBuilder body = new StringBuilder();
     body.append("<div class=\"card login-card\">");
     if (flash != null && !flash.isBlank()) {
@@ -71,6 +85,11 @@ public class UiLoginController {
         .append("</code>.</p>");
     if (mode.showsPasswordForm()) {
       body.append("<form method=\"post\" action=\"/login\">");
+      body.append("<input type=\"hidden\" name=\"")
+          .append(ApiUiHtml.esc(csrfName))
+          .append("\" value=\"")
+          .append(ApiUiHtml.esc(csrfToken))
+          .append("\">");
       body.append("<label for=\"username\">Username or email</label>");
       body.append(
           "<input id=\"username\" name=\"username\" type=\"text\" autocomplete=\"username\" required autofocus>");
@@ -104,7 +123,7 @@ public class UiLoginController {
       }
     }
     body.append("</div>");
-    return ApiUiHtml.loginPage(body.toString());
+    return ApiUiHtml.loginPage(body.toString(), csrfToken, csrfHeaderName);
   }
 
   private ExternalLoginClientSettings clientExternalSettings() {

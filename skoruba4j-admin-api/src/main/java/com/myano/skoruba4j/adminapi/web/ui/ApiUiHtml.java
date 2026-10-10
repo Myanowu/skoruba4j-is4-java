@@ -43,6 +43,17 @@ public final class ApiUiHtml {
       String body,
       String sectionKey,
       List<DebugEndpoint> debugEndpoints) {
+    return page(title, flash, body, sectionKey, debugEndpoints, null, null);
+  }
+
+  public static String page(
+      String title,
+      String flash,
+      String body,
+      String sectionKey,
+      List<DebugEndpoint> debugEndpoints,
+      String csrfToken,
+      String csrfHeaderName) {
     // API nav + debug only for admin-role principals (defense in depth; SecurityFilterChain also enforces).
     boolean admin = hasAdminAccess();
     List<DebugEndpoint> endpoints =
@@ -54,6 +65,11 @@ public final class ApiUiHtml {
     StringBuilder html = new StringBuilder();
     html.append("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">");
     html.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+    if (csrfToken != null && !csrfToken.isBlank()) {
+      html.append("<meta name=\"_csrf\" content=\"").append(esc(csrfToken)).append("\">");
+      String header = csrfHeaderName != null && !csrfHeaderName.isBlank() ? csrfHeaderName : "X-XSRF-TOKEN";
+      html.append("<meta name=\"_csrf_header\" content=\"").append(esc(header)).append("\">");
+    }
     html.append("<title>").append(esc(title)).append(" · Skoruba4j Admin API</title>");
     html.append("<style>").append(css()).append("</style></head><body");
     if (admin) {
@@ -100,9 +116,18 @@ public final class ApiUiHtml {
   }
 
   public static String loginPage(String body) {
+    return loginPage(body, null, null);
+  }
+
+  public static String loginPage(String body, String csrfToken, String csrfHeaderName) {
     StringBuilder html = new StringBuilder();
     html.append("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">");
     html.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+    if (csrfToken != null && !csrfToken.isBlank()) {
+      html.append("<meta name=\"_csrf\" content=\"").append(esc(csrfToken)).append("\">");
+      String header = csrfHeaderName != null && !csrfHeaderName.isBlank() ? csrfHeaderName : "X-XSRF-TOKEN";
+      html.append("<meta name=\"_csrf_header\" content=\"").append(esc(header)).append("\">");
+    }
     html.append("<title>Sign in · Skoruba4j Admin API</title>");
     html.append("<style>").append(css()).append("</style></head><body class=\"gate\">");
     html.append("<main>");
@@ -281,6 +306,11 @@ public final class ApiUiHtml {
             if (method !== 'GET' && method !== 'DELETE') {
               opts.headers['Content-Type'] = 'application/json';
               opts.body = bodyEl.value && bodyEl.value.trim() ? bodyEl.value : '{}';
+              const csrfMeta = document.querySelector('meta[name="_csrf"]');
+              const csrfHeaderMeta = document.querySelector('meta[name="_csrf_header"]');
+              if (csrfMeta && csrfHeaderMeta) {
+                opts.headers[csrfHeaderMeta.content] = csrfMeta.content;
+              }
             }
             try {
               const res = await fetch(path, opts);

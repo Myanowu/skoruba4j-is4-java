@@ -116,7 +116,8 @@ public class AdminApiSecurityConfiguration {
     String redirectPath = properties.apiRedirectPath();
     ApiRoleSuccessHandler signedIn = new ApiRoleSuccessHandler(adminRole);
     http.securityMatcher("/**")
-        .csrf(csrf -> csrf.disable())
+        .csrf(csrf -> csrf.csrfTokenRepository(
+            new org.springframework.security.web.csrf.CookieCsrfTokenRepository()))
         .authorizeHttpRequests(
             authorize ->
                 authorize

@@ -35,9 +35,12 @@ data/
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
-dist/
+# Build output assembly at the repo root only. Must NOT ignore
+# skoruba4j-console/src/dist/ which holds the launcher script sources.
+/dist/
 # Local agent notes, plans, and scratch. Not part of the public tree.
 .cursor/
+.trae/
 # Protocol tests that name organization API resources. Keep local; do not publish.
 skoruba4j-protocol/src/test/java/com/myano/skoruba4j/protocol/Is4AccessTokenClaimsTest.java
 *.log

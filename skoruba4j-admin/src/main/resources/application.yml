@@ -9,6 +9,8 @@ spring:
 server:
   port: 6060
   ssl:
+    # HTTP server by default; see skoruba4j-sts application.yml note.
+    enabled: false
     trust-store: file:${java.home}/lib/security/cacerts
     trust-store-password: changeit
   servlet:

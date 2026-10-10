@@ -9,6 +9,10 @@ spring:
 server:
   port: 5050
   ssl:
+    # HTTP server by default (console/env may enable TLS via -D overrides).
+    # trust-store is for outbound TLS clients only; without enabled:false,
+    # Spring Boot 3.5 starts an HTTPS connector that requires a key-store.
+    enabled: false
     trust-store: file:${java.home}/lib/security/cacerts
     trust-store-password: changeit
   servlet:

@@ -31,7 +31,8 @@ class IdentityStoreAdminTest {
     assertEquals(1, users.rows());
     IdentityStoreAdmin.TableStatus clients =
         report.tables().stream().filter(t -> "Clients".equals(t.name())).findFirst().orElseThrow();
-    assertEquals(1, clients.rows());
+    // skoruba4j-admin + google-demo + admin-api
+    assertEquals(3, clients.rows());
     IdentityStoreAdmin.Report again = IdentityStoreAdmin.inspect(ds, DbProvider.SQLITE, TableStyle.SKORUBA);
     assertEquals(1, again.tables().stream().filter(t -> "Users".equals(t.name())).findFirst().orElseThrow().rows());
 

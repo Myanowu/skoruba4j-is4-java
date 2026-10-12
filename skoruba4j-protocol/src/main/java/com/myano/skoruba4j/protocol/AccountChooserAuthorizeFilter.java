@@ -53,6 +53,8 @@ public final class AccountChooserAuthorizeFilter extends OncePerRequestFilter {
     String prompt = request.getParameter("prompt");
     boolean forceChooser = AccountChooser.wantsSelectAccount(prompt);
     if (!forceChooser && AccountChooser.consumeFreshLogin(session)) {
+      // Fresh login alone skips the picker once; drop any leftover approved ReturnUrl.
+      AccountChooser.clearApproved(session);
       filterChain.doFilter(request, response);
       return;
     }

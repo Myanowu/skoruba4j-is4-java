@@ -58,7 +58,7 @@ class Is4LoginSuccessHandlerTest {
   }
 
   @Test
-  void successRedirectMarksChooserApproved() throws Exception {
+  void successRedirectMarksFreshLoginOnly() throws Exception {
     Is4LoginSuccessHandler handler = new Is4LoginSuccessHandler();
     handler.setRequestCache(new NullRequestCache());
     MockHttpServletRequest request = new MockHttpServletRequest();
@@ -70,7 +70,9 @@ class Is4LoginSuccessHandlerTest {
     handler.onAuthenticationSuccess(request, response, auth);
     assertEquals(returnUrl, response.getRedirectedUrl());
     assertNotNull(request.getSession(false));
-    assertTrue(AccountChooser.isApproved(request.getSession(false), returnUrl));
-    assertTrue(AccountChooser.consumeFreshLogin(request.getSession(false)));
+    assertTrue(AccountChooser.isFreshLogin(request.getSession(false)));
+    // Approved is reserved for /login/choose Continue — not set on password login.
+    org.junit.jupiter.api.Assertions.assertFalse(
+        AccountChooser.isApproved(request.getSession(false), returnUrl));
   }
 }

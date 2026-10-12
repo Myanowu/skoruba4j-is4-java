@@ -1,0 +1,41 @@
+server:
+  port: 8088
+  servlet:
+    session:
+      cookie:
+        name: ORGPLATFORM_SESSION
+        http-only: true
+        same-site: lax
+
+spring:
+  application:
+    name: org-platform-api
+  datasource:
+    url: jdbc:sqlite:${orgplatform.data-dir:./data}/orgplatform.sqlite
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      maximum-pool-size: 1
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      continue-on-error: false
+
+orgplatform:
+  data-dir: ${ORGPLATFORM_DATA_DIR:./data}
+  security:
+    # open = local demo without IdP; oidc = browser login at STS, admin role required
+    mode: oidc
+    admin-role: ${ORGPLATFORM_ADMIN_ROLE:MyRole}
+    issuer-uri: ${ORGPLATFORM_ISSUER_URI:http://127.0.0.1:5050}
+    client-id: ${ORGPLATFORM_OIDC_CLIENT_ID:org-platform}
+    client-secret: ${ORGPLATFORM_OIDC_CLIENT_SECRET:}
+    redirect-path: /login/oauth2/code/sts
+  idp:
+    admin-api-base-url: http://localhost:8001
+    sync-enabled: false
+    bearer-token: ${ORGPLATFORM_IDP_BEARER_TOKEN:}
+
+logging:
+  level:
+    com.myano.orgplatform: INFO

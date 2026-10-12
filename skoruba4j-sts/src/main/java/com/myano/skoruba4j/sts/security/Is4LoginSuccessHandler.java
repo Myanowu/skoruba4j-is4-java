@@ -21,8 +21,10 @@ import org.springframework.security.web.savedrequest.SavedRequest;
 
 /**
  * Resume {@code /connect/authorize} after login (IS4 ReturnUrl). Fresh login skips the account
- * chooser (marks the ReturnUrl approved). After RP logout without a saved authorize request, honour
- * {@link RpResume} so the browser returns to the RP {@code /login} instead of STS home.
+ * chooser once ({@link AccountChooser#markFreshLogin}); do not also {@code markApproved}, or a
+ * second authorize in the same session would skip the picker. After RP logout without a saved
+ * authorize request, honour {@link RpResume} so the browser returns to the RP {@code /login}
+ * instead of STS home.
  */
 public final class Is4LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
   private final SecurityContextRepository securityContextRepository;
@@ -74,9 +76,6 @@ public final class Is4LoginSuccessHandler extends SimpleUrlAuthenticationSuccess
         jdbc, authentication == null ? null : authentication.getName());
     AccountChooser.markFreshLogin(request.getSession(true));
     String target = determineTargetUrl(request, response);
-    if (Is4ReturnUrls.isSafe(target)) {
-      AccountChooser.markApproved(request.getSession(true), target);
-    }
     if (requestCache != null) {
       requestCache.removeRequest(request, response);
     }

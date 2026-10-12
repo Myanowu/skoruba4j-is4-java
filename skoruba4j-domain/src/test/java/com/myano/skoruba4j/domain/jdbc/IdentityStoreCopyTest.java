@@ -36,7 +36,7 @@ class IdentityStoreCopyTest {
     assertEquals(
         1, report.tables().stream().filter(t -> "Users".equals(t.name())).findFirst().orElseThrow().rows());
     assertEquals(
-        1,
+        3,
         report.tables().stream()
             .filter(t -> "Clients".equals(t.name()))
             .findFirst()

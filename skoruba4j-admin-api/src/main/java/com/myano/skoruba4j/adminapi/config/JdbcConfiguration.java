@@ -19,7 +19,11 @@ public class JdbcConfiguration {
   @ConditionalOnExpression("!'${idserver.db.url:}'.trim().isEmpty()")
   public HikariDataSource dataSource(IdserverProperties props) {
     HikariDataSource ds = new HikariDataSource();
-    ds.setJdbcUrl(SqlitePaths.resolveJdbcUrl(props.getDb().getUrl()));
+    String jdbcUrl = SqlitePaths.resolveJdbcUrl(props.getDb().getUrl());
+    if (props.dbProvider() == DbProvider.SQLITE) {
+      SqlitePaths.ensureParent(jdbcUrl, SqlitePaths.installHome());
+    }
+    ds.setJdbcUrl(jdbcUrl);
     ds.setUsername(blankToNull(props.getDb().getUsername()));
     ds.setPassword(blankToNull(props.getDb().getPassword()));
     ds.setDriverClassName(props.dbProvider().driverClassName());

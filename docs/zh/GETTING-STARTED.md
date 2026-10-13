@@ -2,6 +2,8 @@
 
 这是下载项目之后的最短路径。不用单独安装数据库。第一次启动会在你自己的机器上新建一个空的 SQLite 文件，并写入 DEMO 用户。这个文件只留在本机，不会进 Git。
 
+更短的演示路径（Docker Compose 或 `./demo/run.sh`）见 [demo.md](demo.md)。
+
 产品名是 **Skoruba4j**。建议的 GitHub 仓库名是 **skoruba4j-is4-java**。
 
 ## 你会看到的名字

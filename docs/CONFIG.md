@@ -13,7 +13,7 @@
 idserver:
   db:
     provider: sqlite      # default install; sqlserver | postgresql | mysql for existing IS4
-    url: ${IDSERVER_DB_URL:jdbc:sqlite:${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000}
+    url: ${IDSERVER_DB_URL:jdbc:sqlite:\${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000}
     username: ${IDSERVER_DB_USERNAME:}
     password: ${IDSERVER_DB_PASSWORD:}
   identity:
@@ -69,7 +69,7 @@ Browser cookies are not port-specific. STS and Admin on `localhost` cannot both 
 
 Everything else (reCAPTCHA, TOTP, health) uses JDK APIs. `GET /health` is a plain MVC controller, not Actuator.
 
-`idserver.db.provider=sqlite` is the **bundled first-install database**: file `${IDSERVER_HOME}/data/skoruba4j.sqlite`. For a packaged build, **IDSERVER_HOME is the `dist/` directory** (the same tree the installer copies). YAML stores `jdbc:sqlite:${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000`. `dist/cmd/env.cmd` sets `IDSERVER_HOME` to the parent of `cmd/` (that `dist/` or install folder). Console Start uses the same home. `mvn package` copies gitignored `data/skoruba4j.sqlite*` into `dist/data` when present. Empty `url` still means no database.
+`idserver.db.provider=sqlite` is the **bundled first-install database**: file `${IDSERVER_HOME}/data/skoruba4j.sqlite`. For a packaged build, **IDSERVER_HOME is the `dist/` directory** (the same tree the installer copies). The yaml default escapes the token as `\${IDSERVER_HOME}` so Spring Boot 3.5 leaves it for `SqlitePaths` (a bare `${IDSERVER_HOME}` is expanded too early, and `$$` is not the escape character). Resolved file: `jdbc:sqlite:${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000`. `dist/cmd/env.cmd` sets `IDSERVER_HOME` to the parent of `cmd/` (that `dist/` or install folder). Console Start uses the same home. `mvn package` copies gitignored `data/skoruba4j.sqlite*` into `dist/data` when present. Empty `url` still means no database.
 
 The public demo listens on HTTP 5050 / 6060 / 44302. HTTPS 5051 / 6061 needs a private keystore (`server.ssl.key-store`); that file is gitignored and is not required for `/health` or discovery.
 

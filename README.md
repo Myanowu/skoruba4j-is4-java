@@ -8,6 +8,18 @@ Maven modules: `skoruba4j-sts`, `skoruba4j-admin`, `skoruba4j-admin-api`, `skoru
 
 **Status:** JDK 21 / Spring Boot 3.5. The public `oss` profile uses bundled SQLite and can serve `/health` and OpenID discovery after `mvn package`. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) (cells marked Y must ship with tests).
 
+## Try the demo
+
+Shortest path: [docs/demo.md](docs/demo.md). Docker Compose, or `./demo/run.sh` with JDK 21. A fresh SQLite file and a **demo-only** user are created on first start. This is not a production database.
+
+| Check | URL |
+|-------|-----|
+| Health | http://127.0.0.1:5050/health |
+| Discovery | http://127.0.0.1:5050/.well-known/openid-configuration |
+| Login | http://127.0.0.1:5050/login (`demo` / `Passw0rd!`) |
+
+Chinese: [docs/zh/demo.md](docs/zh/demo.md).
+
 ## Why this exists
 
 IdentityServer4 is end-of-life. The official .NET path is Duende. Teams that must run on the JVM, but already have:
@@ -65,6 +77,7 @@ Eclipse (m2e): import the root `pom.xml` as **Existing Maven Projects**. Do not 
 
 | Doc | Purpose |
 |-----|---------|
+| [docs/demo.md](docs/demo.md) | Docker or `java -jar` demo (health, discovery, login) |
 | [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) | Empty checkout to a running STS and Admin |
 | [docs/ABOUT.md](docs/ABOUT.md) | Product about (GitHub + in-app `/about`) |
 | [docs/WHY.md](docs/WHY.md) | Positioning vs Keycloak / Duende / MaxKey |

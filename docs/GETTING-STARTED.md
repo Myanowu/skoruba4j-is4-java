@@ -2,6 +2,8 @@
 
 This is the short path for a new checkout. You do not install a database server. The first start creates an empty SQLite file on your machine and a DEMO user. That file stays local and is gitignored.
 
+For the visitor path (Docker Compose or `./demo/run.sh`), start at [demo.md](demo.md).
+
 Product name: **Skoruba4j**. Suggested GitHub repository name: **skoruba4j-is4-java**.
 
 ## Names you will see

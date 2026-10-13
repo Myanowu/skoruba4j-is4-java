@@ -31,6 +31,8 @@ config/client_secret_*.json
 logs/
 # Local identity database. First run creates it under $IDSERVER_HOME/data/. Never commit.
 data/
+# java -jar demo home (SQLite, generated signing key). Docker uses a named volume instead.
+demo/runtime/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal

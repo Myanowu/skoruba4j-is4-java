@@ -1,0 +1,41 @@
+# Build context for the public demo image. The image compiles inside Docker.
+.git/
+.github/
+.cursor/
+.idea/
+.vscode/
+**/*.iml
+
+# Docs and agent notes are not needed to compile.
+docs/
+*.md
+LICENSE
+NOTICE
+
+# Local runtime, secrets, and build output. Never send these to the daemon.
+data/
+secrets/
+demo/runtime/
+dist/
+**/target/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+**/*.p12
+**/*.pfx
+**/*.pem
+.env
+.env.*
+**/.npmrc
+config/idserver-local.yml
+config/idserver-connections.yml
+config/external-login-local.yml
+config/client_secret_*.json
+application-local.yml
+**/application-local.yml
+logs/
+*.log
+
+# Not part of the STS / Admin demo image.
+applications/

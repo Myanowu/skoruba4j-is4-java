@@ -1,0 +1,46 @@
+# Local demo. First start creates SQLite under the demo-home volume and the DEMO user.
+# Demo password only — see docs/demo.md. Ports are bound to loopback.
+
+name: skoruba4j-demo
+
+services:
+  sts:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: skoruba4j-demo:local
+    environment:
+      IDSERVER_HOME: /var/lib/skoruba4j
+    ports:
+      - "127.0.0.1:5050:5050"
+    volumes:
+      - demo-home:/var/lib/skoruba4j
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5050/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 18
+      start_period: 90s
+
+  admin:
+    image: skoruba4j-demo:local
+    pull_policy: never
+    depends_on:
+      sts:
+        condition: service_healthy
+    environment:
+      IDSERVER_HOME: /var/lib/skoruba4j
+    command: ["-jar", "/opt/skoruba4j/skoruba4j-admin.jar"]
+    ports:
+      - "127.0.0.1:6060:6060"
+    volumes:
+      - demo-home:/var/lib/skoruba4j
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:6060/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+
+volumes:
+  demo-home:

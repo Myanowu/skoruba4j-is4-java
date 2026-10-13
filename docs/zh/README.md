@@ -4,8 +4,11 @@
 
 当前状态：JDK 21 / Spring Boot 3.5。公开 profile `oss` 默认用内置 **SQLite**。下载后按 [GETTING-STARTED.md](GETTING-STARTED.md) 搭建；演示账号见 [FIRST-LOGIN.md](FIRST-LOGIN.md)。英文总览在仓库根 [README.md](../../README.md)。
 
+想先跑起来： [demo.md](demo.md)（Docker Compose 或 `./demo/run.sh`）。健康检查 `http://127.0.0.1:5050/health`，发现文档 `http://127.0.0.1:5050/.well-known/openid-configuration`，登录 `http://127.0.0.1:5050/login`（演示账号 `demo` / `Passw0rd!`，仅本地演示）。
+
 英文主文档从仓库根 README 进入 `docs/`。本目录为中文镜像：
 
+- [demo.md](demo.md) — 几分钟内打开发现文档和登录页
 - [GETTING-STARTED.md](GETTING-STARTED.md) — 下载后搭建本机空库
 - [WHY.md](WHY.md)
 - [ABOUT.md](ABOUT.md)

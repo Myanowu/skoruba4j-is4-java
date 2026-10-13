@@ -17,7 +17,8 @@ server:
 idserver:
   db:
     provider: sqlite
-    url: ${IDSERVER_DB_URL:jdbc:sqlite:$${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000}
+    # Backslash keeps ${IDSERVER_HOME} for SqlitePaths. Spring Boot 3.5 escapes placeholders with \, not $$.
+    url: ${IDSERVER_DB_URL:jdbc:sqlite:\${IDSERVER_HOME}/data/skoruba4j.sqlite?journal_mode=WAL&busy_timeout=8000}
     username: ${IDSERVER_DB_USERNAME:}
     password: ${IDSERVER_DB_PASSWORD:}
   identity:

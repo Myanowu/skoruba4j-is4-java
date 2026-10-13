@@ -1,5 +1,7 @@
 # Demo data (oss)
 
+How to start the process: [docs/demo.md](../docs/demo.md).
+
 The public demo does not load JSON seed files. On the first SQLite start, when the `Users` table is empty, the process creates tables and inserts a DEMO identity store.
 
 | Field | Value |

@@ -1,0 +1,13 @@
+# Local demo overlay for Skoruba4j STS and Admin.
+# Loaded by demo/run.sh, demo/run.cmd, and the Docker image.
+# No production hosts, SMTP, or client secrets. The DEMO user is inserted into
+# SQLite on first start when Users is empty (username demo). See docs/demo.md.
+
+idserver:
+  db:
+    provider: sqlite
+  issuer-uri: http://127.0.0.1:5050
+  admin:
+    login-mode: local
+    role: MyRole
+    client-id: skoruba4j-admin

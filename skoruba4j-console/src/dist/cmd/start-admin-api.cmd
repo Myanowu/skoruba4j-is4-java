@@ -2,6 +2,7 @@
 REM Skoruba4j Admin API launcher. Reads heap settings from jvm.env.cmd (written by skoruba4j-console).
 setlocal
 pushd "%~dp0"
+call "%~dp0env.cmd" || exit /b 1
 if exist "%~dp0jvm.env.cmd" call "%~dp0jvm.env.cmd"
 set "XMX=%IDSERVER_API_XMX%"
 if "%XMX%"=="" set "XMX=256m"
@@ -11,5 +12,5 @@ if "%JAR%"=="" (
   echo Admin API jar not found under %~dp0..\lib
   exit /b 1
 )
-"%~dp0..\jdk\bin\java.exe" -Xmx%XMX% -Dspring.profiles.active=oss,local -jar "%JAR%"
+"%JAVA_HOME%\bin\java.exe" -Xmx%XMX% -Dspring.profiles.active=oss,local -DIDSERVER_HOME=%IDSERVER_HOME% -jar "%JAR%"
 popd

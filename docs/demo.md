@@ -104,7 +104,23 @@ Access-token `aud` is `ApiResources.Name` when the database has API resources. T
 
 ## What the pages look like
 
-STS login (`demo` / `Passw0rd!` is printed in this doc because it is the local seed, not a shared secret):
+Admin is the console for this demo. Open http://127.0.0.1:6060/login and sign in with `demo` / `Passw0rd!` (printed here because it is the local seed).
+
+![Admin sign-in](demo/admin-login.png)
+
+The overview counts the seeded clients and the demo user. ApiResources stays 0 on this empty file:
+
+![Admin overview](demo/admin-home.png)
+
+Clients, users, and roles are that same seed:
+
+![Admin clients](demo/admin-clients.png)
+
+![Admin users](demo/admin-users.png)
+
+![Admin roles](demo/admin-roles.png)
+
+STS on port 5050 is the token issuer. Its login page accepts the same demo user:
 
 ![STS login page](demo/sts-login.png)
 
@@ -115,10 +131,6 @@ Discovery document:
 After sign-in, the STS home page shows the demo user and links discovery plus health:
 
 ![Signed-in STS home](demo/sts-home.png)
-
-Admin, after the same demo sign-in, lists the seeded clients. ApiResources stays 0 on this empty file:
-
-![Admin overview](demo/admin-home.png)
 
 ## Reset
 

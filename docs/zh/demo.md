@@ -102,7 +102,23 @@ curl -s -X POST http://127.0.0.1:5050/connect/token \
 
 ## 页面长什么样
 
-STS 登录页：
+Admin 是本演示的控制台。打开 http://127.0.0.1:6060/login，用 `demo` / `Passw0rd!` 登录（写在这里是因为这是本地种子账号）。
+
+![Admin 登录](../demo/admin-login.png)
+
+概览页统计种子客户端和演示用户。这份空库里的 ApiResources 是 0：
+
+![Admin 概览](../demo/admin-home.png)
+
+客户端、用户和角色都是同一份种子数据：
+
+![Admin 客户端](../demo/admin-clients.png)
+
+![Admin 用户](../demo/admin-users.png)
+
+![Admin 角色](../demo/admin-roles.png)
+
+5050 端口上的 STS 是令牌签发方。它的登录页接受同一个演示用户：
 
 ![STS 登录页](../demo/sts-login.png)
 
@@ -113,10 +129,6 @@ STS 登录页：
 登录之后，STS 首页显示演示用户，并链到发现文档和健康检查：
 
 ![已登录的 STS 首页](../demo/sts-home.png)
-
-Admin 用同一对演示账号登录后，会列出种子客户端。这份空库里的 ApiResources 是 0：
-
-![Admin 概览](../demo/admin-home.png)
 
 ## 重置
 

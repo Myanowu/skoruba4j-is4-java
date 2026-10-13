@@ -23,7 +23,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import javax.sql.DataSource;
-import org.sqlite.SQLiteDataSource;
 
 /**
  * Copy IS4 / Identity rows. Backup always lands in SQLite. Restore can target sqlite, SQL Server,
@@ -33,9 +32,7 @@ public final class IdentityStoreCopy {
   private IdentityStoreCopy() {}
 
   public static DataSource sqliteFile(Path file) {
-    SQLiteDataSource ds = new SQLiteDataSource();
-    ds.setUrl(SqlitePaths.jdbcUrl(file));
-    return ds;
+    return new UnpooledJdbcDataSource(SqlitePaths.jdbcUrl(file));
   }
 
   public static Map<String, Integer> backupToFile(

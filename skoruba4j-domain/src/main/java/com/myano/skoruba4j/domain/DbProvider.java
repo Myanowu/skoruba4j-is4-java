@@ -26,7 +26,7 @@ public enum DbProvider {
       case SQLSERVER -> "com.microsoft.sqlserver.jdbc.SQLServerDriver";
       case POSTGRESQL -> "org.postgresql.Driver";
       case MYSQL -> "com.mysql.cj.jdbc.Driver";
-      case SQLITE -> "org.sqlite.JDBC";
+      case SQLITE -> "com.myano.jsqlite.JDBC";
     };
   }
 }

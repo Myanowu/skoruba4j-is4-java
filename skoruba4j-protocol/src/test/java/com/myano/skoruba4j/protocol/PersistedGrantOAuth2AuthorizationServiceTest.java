@@ -30,7 +30,8 @@ import org.springframework.security.oauth2.server.authorization.client.InMemoryR
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
-import org.sqlite.SQLiteDataSource;
+import com.myano.skoruba4j.domain.jdbc.UnpooledJdbcDataSource;
+import javax.sql.DataSource;
 
 class PersistedGrantOAuth2AuthorizationServiceTest {
 
@@ -39,8 +40,7 @@ class PersistedGrantOAuth2AuthorizationServiceTest {
   @Test
   void findByAccessTokenFindsAuthorizationEvenWhenTokenIsJwtShaped() throws Exception {
     Path db = temp.resolve("grants.sqlite");
-    SQLiteDataSource dataSource = new SQLiteDataSource();
-    dataSource.setUrl("jdbc:sqlite:" + db.toAbsolutePath());
+    DataSource dataSource = new UnpooledJdbcDataSource("jdbc:sqlite:" + db.toAbsolutePath());
     SqliteSchema.createEmpty(dataSource, TableStyle.SKORUBA);
     JdbcRepositories repos =
         new JdbcRepositories(dataSource, DbProvider.SQLITE, TableStyle.SKORUBA);
@@ -91,8 +91,7 @@ class PersistedGrantOAuth2AuthorizationServiceTest {
   @Test
   void roundTripsAuthorizationRequestWithPkceForTokenExchange() throws Exception {
     Path db = temp.resolve("grants-pkce.sqlite");
-    SQLiteDataSource dataSource = new SQLiteDataSource();
-    dataSource.setUrl("jdbc:sqlite:" + db.toAbsolutePath());
+    DataSource dataSource = new UnpooledJdbcDataSource("jdbc:sqlite:" + db.toAbsolutePath());
     SqliteSchema.createEmpty(dataSource, TableStyle.SKORUBA);
     JdbcRepositories repos =
         new JdbcRepositories(dataSource, DbProvider.SQLITE, TableStyle.SKORUBA);
@@ -157,8 +156,7 @@ class PersistedGrantOAuth2AuthorizationServiceTest {
   @Test
   void roundTripsAccessTokenClaimsSoUserInfoIsActiveDoesNotClassCast() throws Exception {
     Path db = temp.resolve("grants-nbf.sqlite");
-    SQLiteDataSource dataSource = new SQLiteDataSource();
-    dataSource.setUrl("jdbc:sqlite:" + db.toAbsolutePath());
+    DataSource dataSource = new UnpooledJdbcDataSource("jdbc:sqlite:" + db.toAbsolutePath());
     SqliteSchema.createEmpty(dataSource, TableStyle.SKORUBA);
     JdbcRepositories repos =
         new JdbcRepositories(dataSource, DbProvider.SQLITE, TableStyle.SKORUBA);

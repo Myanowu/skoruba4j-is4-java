@@ -50,7 +50,11 @@ public final class StsPasswordAuthenticationProvider implements AuthenticationPr
     }
     List<GrantedAuthority> authorities =
         AdminOidcAuthorities.merge(
-            List.of(), identity.roleClaim(), identity.rolesClaim(), identity.subject(), Optional.empty());
+            List.of(),
+            identity.roleClaim(),
+            identity.rolesClaim(),
+            identity.subject(),
+            Optional.empty());
     StsSessionUser principal =
         new StsSessionUser(identity.subject(), idClaims, accessClaims, userInfo, authorities);
     return UsernamePasswordAuthenticationToken.authenticated(principal, null, authorities);

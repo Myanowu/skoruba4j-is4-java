@@ -64,7 +64,7 @@ Browser cookies are not port-specific. STS and Admin on `localhost` cannot both 
 - `spring-boot-starter-oauth2-resource-server` (Admin API)
 - `spring-boot-starter-oauth2-client` (Admin)
 - `spring-boot-starter-jdbc`
-- `mssql-jdbc` / `postgresql` / `mysql-connector-j` / `sqlite-jdbc` (one per provider)
+- `mssql-jdbc` / `postgresql` / `mysql-connector-j` / `com.myano:jsqlite` (one per provider; SQLite driver class `com.myano.jsqlite.JDBC`)
 - optional `jakarta.mail`
 
 Everything else (reCAPTCHA, TOTP, health) uses JDK APIs. `GET /health` is a plain MVC controller, not Actuator.

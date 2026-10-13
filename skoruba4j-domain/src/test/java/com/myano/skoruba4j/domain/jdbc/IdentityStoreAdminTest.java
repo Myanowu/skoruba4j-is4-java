@@ -9,7 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.sqlite.SQLiteDataSource;
+import javax.sql.DataSource;
 
 class IdentityStoreAdminTest {
 
@@ -19,8 +19,7 @@ class IdentityStoreAdminTest {
   void initializeCreatesExpectedTablesAndDemoUser() throws Exception {
     Path file = SqlitePaths.file(temp);
     Files.createDirectories(file.getParent());
-    SQLiteDataSource ds = new SQLiteDataSource();
-    ds.setUrl(SqlitePaths.jdbcUrl(file));
+    DataSource ds = new UnpooledJdbcDataSource(SqlitePaths.jdbcUrl(file));
     IdentityStoreAdmin.Report report =
         IdentityStoreAdmin.initializeSqlite(ds, TableStyle.SKORUBA);
     assertTrue(report.ping());

@@ -4,7 +4,7 @@ Used when `idserver.db.provider=sqlite`. File: `${IDSERVER_HOME}/data/skoruba4j.
 
 The runnable script is on the classpath: `com/myano/skoruba4j/domain/schema/sqlite-is4.sql` plus Identity tables created in Java (`Users` or `AspNetUsers` from `table-style`). `CREATE TABLE IF NOT EXISTS` only. **Do not run against a production IS4 database.**
 
-WAL + `busy_timeout=8000` so STS, Admin, and Admin API can share the file. `sqlite-jdbc` ships platform natives inside the jar.
+WAL + `busy_timeout=8000` so STS, Admin, and Admin API can share the file. Driver class is `com.myano.jsqlite.JDBC` (pure Java). Install [JSQLite](https://github.com/Myanowu/jsqlite) first (sibling checkout): `mvn -f ../JSQLite/pom.xml install`.
 
 DEMO seed (empty Users table only): user `demo` / `Passw0rd!` (Identity v3 hash), role `MyRole`, identity resources `openid`/`profile`/`email`/`roles`, client `skoruba4j-admin` (PKCE, authorization_code).
 

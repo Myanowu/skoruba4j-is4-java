@@ -144,7 +144,7 @@ public final class SqlitePaths {
       Files.createDirectories(parent);
     }
     try {
-      Class.forName("org.sqlite.JDBC");
+      Class.forName("com.myano.jsqlite.JDBC");
     } catch (ClassNotFoundException e) {
       throw new IOException("SQLite JDBC driver not on classpath", e);
     }

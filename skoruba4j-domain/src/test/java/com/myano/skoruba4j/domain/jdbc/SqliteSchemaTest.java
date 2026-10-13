@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.sqlite.SQLiteDataSource;
+import javax.sql.DataSource;
 
 class SqliteSchemaTest {
 
@@ -29,8 +29,7 @@ class SqliteSchemaTest {
   void bootstrapsDemoUserAndAdminClient() throws Exception {
     Path file = SqlitePaths.file(temp);
     Files.createDirectories(file.getParent());
-    SQLiteDataSource ds = new SQLiteDataSource();
-    ds.setUrl(SqlitePaths.jdbcUrl(file));
+    DataSource ds = new UnpooledJdbcDataSource(SqlitePaths.jdbcUrl(file));
     SqliteSchema.ensure(ds, TableStyle.SKORUBA);
     SqliteSchema.ensure(ds, TableStyle.SKORUBA);
     JdbcRepositories repos = new JdbcRepositories(ds, DbProvider.SQLITE, TableStyle.SKORUBA);
@@ -80,8 +79,7 @@ class SqliteSchemaTest {
   void copiedDatabaseKeepsExistingClientsAndDoesNotInventSkorubaAdmin() throws Exception {
     Path file = SqlitePaths.file(temp);
     Files.createDirectories(file.getParent());
-    SQLiteDataSource ds = new SQLiteDataSource();
-    ds.setUrl(SqlitePaths.jdbcUrl(file));
+    DataSource ds = new UnpooledJdbcDataSource(SqlitePaths.jdbcUrl(file));
     SqliteSchema.ensure(ds, TableStyle.SKORUBA);
     JdbcRepositories repos = new JdbcRepositories(ds, DbProvider.SQLITE, TableStyle.SKORUBA);
     int adminPk =

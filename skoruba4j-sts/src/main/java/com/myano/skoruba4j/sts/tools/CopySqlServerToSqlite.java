@@ -8,7 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-import org.sqlite.SQLiteDataSource;
+import com.myano.skoruba4j.domain.jdbc.UnpooledJdbcDataSource;
+import javax.sql.DataSource;
 
 /** One-shot local copy. Reads gitignored local-profile YAML; does not print secrets. */
 public final class CopySqlServerToSqlite {
@@ -57,8 +58,7 @@ public final class CopySqlServerToSqlite {
     sqlServer.setDriverClassName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
     sqlServer.setMaximumPoolSize(2);
     sqlServer.setPoolName("copy-sqlserver");
-    SQLiteDataSource sqlite = new SQLiteDataSource();
-    sqlite.setUrl(SqlitePaths.jdbcUrl(destFile));
+    DataSource sqlite = new UnpooledJdbcDataSource(SqlitePaths.jdbcUrl(destFile));
     try {
       Map<String, Integer> counts = SqlServerToSqlite.copy(sqlServer, sqlite, TableStyle.SKORUBA);
       System.out.println("sqlite=" + destFile);

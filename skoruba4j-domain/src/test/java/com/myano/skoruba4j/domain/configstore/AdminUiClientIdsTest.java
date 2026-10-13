@@ -13,7 +13,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.sqlite.SQLiteDataSource;
+import com.myano.skoruba4j.domain.jdbc.UnpooledJdbcDataSource;
+import javax.sql.DataSource;
 
 class AdminUiClientIdsTest {
 
@@ -23,8 +24,7 @@ class AdminUiClientIdsTest {
   void usesConfiguredIdWhenItExistsOtherwiseSigninOidcClientFromCopy() throws Exception {
     Path file = SqlitePaths.file(temp);
     Files.createDirectories(file.getParent());
-    SQLiteDataSource ds = new SQLiteDataSource();
-    ds.setUrl(SqlitePaths.jdbcUrl(file));
+    DataSource ds = new UnpooledJdbcDataSource(SqlitePaths.jdbcUrl(file));
     SqliteSchema.createEmpty(ds, TableStyle.SKORUBA);
     JdbcRepositories repos = new JdbcRepositories(ds, DbProvider.SQLITE, TableStyle.SKORUBA);
     repos

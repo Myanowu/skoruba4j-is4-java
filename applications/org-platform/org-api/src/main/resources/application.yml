@@ -12,7 +12,7 @@ spring:
     name: org-platform-api
   datasource:
     url: jdbc:sqlite:${orgplatform.data-dir:./data}/orgplatform.sqlite
-    driver-class-name: org.sqlite.JDBC
+    driver-class-name: com.myano.jsqlite.JDBC
     hikari:
       maximum-pool-size: 1
   sql:

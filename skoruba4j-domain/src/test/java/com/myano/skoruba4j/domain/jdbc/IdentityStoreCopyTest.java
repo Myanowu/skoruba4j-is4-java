@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.sqlite.SQLiteDataSource;
+import javax.sql.DataSource;
 
 class IdentityStoreCopyTest {
 
@@ -21,15 +21,13 @@ class IdentityStoreCopyTest {
     Path live = temp.resolve("live.sqlite");
     Path backup = temp.resolve("backup.sqlite");
     Path restored = temp.resolve("restored.sqlite");
-    SQLiteDataSource source = new SQLiteDataSource();
-    source.setUrl(SqlitePaths.jdbcUrl(live));
+    DataSource source = new UnpooledJdbcDataSource(SqlitePaths.jdbcUrl(live));
     IdentityStoreAdmin.initializeSqlite(source, TableStyle.SKORUBA);
     Map<String, Integer> saved = IdentityStoreCopy.backupToFile(source, backup, TableStyle.SKORUBA);
     assertTrue(saved.get("Users") >= 1);
     assertTrue(Files.exists(backup));
 
-    SQLiteDataSource dest = new SQLiteDataSource();
-    dest.setUrl(SqlitePaths.jdbcUrl(restored));
+    DataSource dest = new UnpooledJdbcDataSource(SqlitePaths.jdbcUrl(restored));
     IdentityStoreCopy.restoreFromFile(backup, dest, DbProvider.SQLITE, TableStyle.SKORUBA);
     IdentityStoreAdmin.Report report =
         IdentityStoreAdmin.inspect(dest, DbProvider.SQLITE, TableStyle.SKORUBA);

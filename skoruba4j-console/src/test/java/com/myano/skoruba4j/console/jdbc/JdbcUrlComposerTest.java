@@ -45,7 +45,7 @@ class JdbcUrlComposerTest {
 
   @Test
   void driverClassForSqlite() {
-    assertEquals("org.sqlite.JDBC", JdbcUrlComposer.driverClass("sqlite"));
+    assertEquals("com.myano.jsqlite.JDBC", JdbcUrlComposer.driverClass("sqlite"));
   }
 
   @Test
